@@ -1,0 +1,3 @@
+[submodule "packages/r3f-gist"]
+	path = packages/r3f-gist
+	url = https://github.com/momentchan/r3f-gist.git

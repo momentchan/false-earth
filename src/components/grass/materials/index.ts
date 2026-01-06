@@ -1,0 +1,2 @@
+export { createGrassMaterial } from './grassMaterial';
+
