@@ -126,23 +126,17 @@ export function createGrassCompute(
         });
       });
 
-      const distToCenter = sqrt(minDist).mul(uClumpSize);
-      return { distToCenter, cellId: bestCellId };
-    };
-
-    // Calculate direction from blade position to clump center
-    const calculateToCenter = (worldXZ: any, cellId: any) => {
-      const clumpSeed = hash2(cellId);
-      const clumpCenterWorld = cellId.add(clumpSeed).mul(uClumpSize);
-      const dir = clumpCenterWorld.sub(worldXZ);
-      const len = length(dir);
-      const normalized = dir.div(len);
-      const fallback = vec2(1.0, 0.0);
-      return select(len.greaterThan(float(1e-5)), normalized, fallback);
+      // Calculate direction from blade position to clump center (unnormalized)
+      const clumpSeed = hash2(bestCellId);
+      const clumpCenterWorld = bestCellId.add(clumpSeed).mul(uClumpSize);
+      const toCenter = clumpCenterWorld.sub(worldXZ);
+      
+      return { toCenter, cellId: bestCellId };
     };
 
         // Calculate presence (fade-out factor) based on distance from clump center
-    const calculatePresence = (distToCenter: any) => {
+    const calculatePresence = (toCenter: any) => {
+      const distToCenter = length(toCenter);
       const r = clamp(distToCenter.div(uClumpRadius), float(0.0), float(1.0));
       const t = clamp(r.sub(float(0.7)).div(oneMinus(float(0.7))), float(0.0), float(1.0));
       const smoothstepVal = t.mul(t).mul(float(3.0).sub(t.mul(float(2.0))));
@@ -217,13 +211,10 @@ export function createGrassCompute(
     const worldXZ = vec2(instancePos.x, instancePos.z);
     
     // Calculate Voronoi clump information
-    const clumpInfo = getClumpInfo(worldXZ);
-    const distToCenter = clumpInfo.distToCenter;
-    const cellId = clumpInfo.cellId;
+    const { toCenter, cellId } = getClumpInfo(worldXZ);
     
     // Calculate clump-related data
-    const toCenter = calculateToCenter(worldXZ, cellId);
-    const presence = calculatePresence(distToCenter);
+    const presence = calculatePresence(toCenter);
     
     // Generate blade and clump parameters
     const clumpParams = getClumpParams(cellId);

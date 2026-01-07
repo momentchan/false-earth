@@ -1,6 +1,8 @@
 // ============================================================================
 // Constants
 // ============================================================================
+import { struct } from 'three/tsl'
+
 export const DEFAULT_GRID_SIZE = 512;
 export const DEFAULT_PATCH_SIZE = 20;
 export const BLADE_SEGMENTS = 14;
@@ -13,3 +15,34 @@ export const PATCH_SIZE = DEFAULT_PATCH_SIZE;
 export function getGrassBladesCount(gridSize: number): number {
   return gridSize * gridSize;
 }
+
+// Color presets for tipColor
+export const TIP_COLOR_PRESETS = [
+  '#3e8d2f', // Default green
+  '#4b4b4b', // Default gray
+  '#8c502e', // Brown
+  '#21546c', // Blue
+  '#7c7c22', // Yellow
+]
+
+// ============================================================================
+// Structures
+// ============================================================================
+export const grassStructure = struct({
+  // Blade parameters
+  bladeHeight: 'float',
+  bladeWidth: 'float',
+  bladeBend: 'float',
+  bladeType: 'float',
+
+  // Clump data
+  toCenter: 'vec2',
+  presence: 'float',
+  clumpSeed01: 'float',
+
+  // Motion seeds
+  facingAngle01: 'float',
+  perBladeHash01: 'float',
+  windStrength01: 'float',
+  lodSeed01: 'float',
+})

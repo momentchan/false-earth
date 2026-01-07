@@ -1,0 +1,2 @@
+export { findDirectionalLight } from './findDirectionalLight'
+

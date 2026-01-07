@@ -2,7 +2,6 @@ import { AdaptiveDpr, CameraControls, Environment } from "@react-three/drei";
 import { CanvasCapture } from "@packages/r3f-gist/components/utility";
 import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
-import Grass from "../components/Grass";
 import { useState } from "react";
 import Effects from "../components/Effects";
 import { Terrain } from "../components/Terrain";
@@ -58,7 +57,6 @@ export default function App() {
             {/* <Background sunPosition={lightPosition} /> */}
             {/* <Terrain onParamsChange={setTerrainParams} patchSize={patchSize} /> */}
             <GrassWebGPU />
-            {/* <Grass terrainParams={terrainParams} patchSize={patchSize} onPatchSizeChange={setPatchSize} /> */}
             <CanvasCapture />
 
             <mesh position={[0, 2, 0]}>
@@ -84,15 +82,12 @@ export default function App() {
                         material.side = THREE.DoubleSide;
 
                         material.vertexNode = Fn(({ material }: { material: THREE.Material }) => {
-                            // 1. 定義旋轉角度 (90度) - mx_rotate2d 使用度數，不是弧度
-                            const angle = float(180);
+                            const angle = float(175);
 
-                            // 2. 旋轉位置 (Position)
                             const pos = positionLocal;
                             const posXZ = mx_rotate2d(vec2(pos.x, pos.z), angle);
                             const rotatedPos = vec3(posXZ.x, pos.y, posXZ.y);
 
-                            // 3. 旋轉法線 (Normal) - 必須與位置使用相同的旋轉
                             const norm = normalLocal;
                             const normXZ = mx_rotate2d(vec2(norm.x, norm.z), angle);
                             const rotatedNormLocal = vec3(normXZ.x, norm.y, normXZ.y);
@@ -100,16 +95,12 @@ export default function App() {
                             const normalWorldVec4 = modelNormalMatrix.mul(vec4(rotatedNormLocal.x, rotatedNormLocal.y, rotatedNormLocal.z, float(0.0)));
                             const rotatedNormWorld = normalize(normalWorldVec4.xyz);
 
-                            // (material as any).normalNode = transformNormalToView(rotatedNormWorld).toVarying();
-
-                            // 6. 計算最終位置
                             const worldPos = modelWorldMatrix.mul(vec4(rotatedPos.x, rotatedPos.y, rotatedPos.z, float(1.0)));
-
                             return cameraProjectionMatrix.mul(cameraViewMatrix).mul(worldPos);
                         })();
 
                         material.normalNode = Fn(() => {
-                            const angle = float(180);
+                            const angle = float(175);
                           
                             const n = normalLocal;
                             const nXZ = mx_rotate2d(vec2(n.x, n.z), angle);
@@ -124,10 +115,6 @@ export default function App() {
                     })()}
                 />
             </mesh>
-            {/* <mesh>
-                <planeGeometry args={[1, 1]} />
-                <meshBasicMaterial color="red" />
-            </mesh> */}
             {/* <Effects /> */}
         </Canvas>
     </>
