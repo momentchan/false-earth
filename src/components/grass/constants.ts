@@ -46,3 +46,13 @@ export const grassStructure = struct({
   windStrength01: 'float',
   lodSeed01: 'float',
 })
+
+// Indirect draw buffer structure (WebGPU draw indirect format)
+// Structure: [vertexCount, instanceCount, firstVertex, firstInstance, baseVertex]
+export const drawIndirectStructure = struct({
+  vertexCount: 'uint',
+  instanceCount: { type: 'uint', atomic: true }, // Atomic counter for visible instances
+  firstVertex: 'uint',
+  firstInstance: 'uint',
+  baseVertex: 'uint',
+})

@@ -2,6 +2,9 @@ import * as THREE from 'three/webgpu'
 import { instancedArray } from 'three/tsl'
 import { BLADE_SEGMENTS, grassStructure } from '../constants'
 
+// Re-export IndirectStorageBufferAttribute for convenience
+export type IndirectStorageBufferAttribute = THREE.IndirectStorageBufferAttribute
+
 // Seeded Random Number Generator (for consistent position generation)
 function seededRandom(seed: number): number {
   const x = Math.sin(seed) * 10000
@@ -47,5 +50,16 @@ export function createGrassData(grassBlades: number) {
   const grassDataArray = new Float32Array(grassBlades * grassStructSize)
   grassDataArray.fill(0)
   return instancedArray(grassDataArray, grassStructure)
+}
+
+/**
+ * Creates a buffer to store indices of visible grass blades
+ * This buffer is written by the compute shader during culling
+ */
+export function createVisibleIndicesBuffer(grassBlades: number) {
+  // Use Uint32Array for indices (max 4 billion blades)
+  const visibleIndicesArray = new Uint32Array(grassBlades)
+  visibleIndicesArray.fill(0)
+  return instancedArray(visibleIndicesArray, 'uint')
 }
 

@@ -11,15 +11,17 @@ import type { GrassProps } from './grass/types'
 
 
 export default function GrassWebGPU({ terrainParams, patchSize: initialPatchSize = DEFAULT_PATCH_SIZE }: GrassProps = {} as GrassProps) {
-  const { gl, scene } = useThree()
+  const { gl, scene, camera } = useThree()
 
   const [grassParams] = useControls('Grass', () => createGrassControls({ initialPatchSize }), { collapsed: true })
 
   const {
     grassComputeRef,
+    resetComputeRef,
     computeUniformsRef,
     materialUniformsRef,
     materialRef,
+    meshRef,
   } = useGrassSetup({
     grassParams,
     terrainParams,
@@ -50,12 +52,28 @@ export default function GrassWebGPU({ terrainParams, patchSize: initialPatchSize
 
   useFrame(({ clock }) => {
     const renderer = gl as unknown as WebGPURenderer
-    if (!grassComputeRef.current || !computeUniformsRef.current) return
+    // Ensure all compute shaders are ready and camera is initialized before executing
+    if (!grassComputeRef.current || !computeUniformsRef.current || !resetComputeRef.current || !camera) return
 
     const elapsedTime = clock.getElapsedTime()
 
     // Update windTime based on elapsed time
     computeUniformsRef.current.uWindTime.value = elapsedTime
+
+    // Update camera and model matrices for frustum culling
+    // These uniforms are required because renderer.compute() has no camera context
+    const uniforms = computeUniformsRef.current
+    
+    camera.updateMatrixWorld()
+    uniforms.uViewMatrix.value.copy(camera.matrixWorldInverse)
+    uniforms.uProjectionMatrix.value.copy(camera.projectionMatrix)
+    uniforms.uCameraPosition.value.copy(camera.position)
+    if (meshRef.current) {
+      meshRef.current.updateMatrixWorld()
+      uniforms.uModelMatrix.value.copy(meshRef.current.matrixWorld)
+    } else {
+      uniforms.uModelMatrix.value.identity()
+    }
 
     // Update material wind time uniform and light uniforms
     if (materialUniformsRef.current) {
@@ -80,7 +98,22 @@ export default function GrassWebGPU({ terrainParams, patchSize: initialPatchSize
       }
     }
 
-    renderer.compute(grassComputeRef.current)
+    // Execute compute shaders in correct order:
+    // 1. Reset: Set instanceCount to 0 (GPU-side)
+    try {
+      renderer.compute(resetComputeRef.current)
+    } catch (error) {
+      console.error('Reset compute shader error:', error)
+      return // Don't proceed if reset fails
+    }
+
+    // 2. Compute & Culling: Calculate grass parameters and perform culling
+    //    This will atomically increment instanceCount from 0
+    try {
+      renderer.compute(grassComputeRef.current)
+    } catch (error) {
+      console.error('Grass compute shader error:', error)
+    }
   })
 
   return null

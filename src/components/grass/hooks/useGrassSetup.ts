@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three/webgpu'
-import { createBladeGeometry, createPositions, createGrassData } from '../geometry'
+import { storage } from 'three/tsl'
+import { createBladeGeometry, createPositions, createGrassData, createVisibleIndicesBuffer } from '../geometry'
 import { findDirectionalLight } from '../utils/index'
-import { createGrassCompute } from '../compute/grassCompute'
+import { createGrassCompute, createResetDrawBufferCompute } from '../compute/grassCompute'
 import { createGrassMaterial } from '../materials/grassMaterial'
+import { drawIndirectStructure } from '../constants'
 import type { TerrainParams } from '../types'
 
 interface UseGrassSetupParams {
@@ -21,9 +23,11 @@ export function useGrassSetup({
   const { scene } = useThree()
 
   const grassComputeRef = useRef<any>(null)
+  const resetComputeRef = useRef<any>(null)
   const computeUniformsRef = useRef<Record<string, any>>({})
   const materialUniformsRef = useRef<Record<string, any> | null>(null)
   const materialRef = useRef<THREE.MeshStandardNodeMaterial | null>(null)
+  const meshRef = useRef<THREE.Mesh | null>(null)
 
   useEffect(() => {
     // Create geometry and data structures
@@ -31,9 +35,27 @@ export function useGrassSetup({
     const grassBlades = gridSize * gridSize
     const positions = createPositions(gridSize, patchSize)
     const grassData = createGrassData(grassBlades)
+    
+    // Create culling buffers for indirect drawing
+    const visibleIndicesBuffer = createVisibleIndicesBuffer(grassBlades)
+    const vertexCount = bladeGeometry.attributes.position.count
+    
+    // Create indirect draw buffer for WebGPU indirect drawing
+    // Structure: [vertexCount, instanceCount, firstVertex, firstInstance, baseVertex]
+    const drawBuffer = new THREE.IndirectStorageBufferAttribute(
+      new Uint32Array(5),
+      5
+    )
+    const drawStorage = storage(drawBuffer, drawIndirectStructure, 1)
+    bladeGeometry.setIndirect(drawBuffer)
 
     // Create compute shader
-    const { computeFn, uniforms } = createGrassCompute(grassData, positions, {
+    const { computeFn, uniforms } = createGrassCompute(
+      grassData, 
+      positions, 
+      visibleIndicesBuffer,
+      drawStorage,
+      {
       // Shape Parameters
       bladeHeightMin: grassParams.bladeHeightMin,
       bladeHeightMax: grassParams.bladeHeightMax,
@@ -56,10 +78,18 @@ export function useGrassSetup({
       windStrength: grassParams.windStrength,
       windDir: { x: grassParams.windDirX, y: grassParams.windDirZ },
       windFacing: grassParams.windFacing,
+      // Culling Parameters
+      maxCullDistance: grassParams.maxCullDistance ?? 50.0,
+      enableCulling: grassParams.enableCulling ?? true,
+      cullOffset: grassParams.bladeHeightMax ?? 0.8
     })
     const grassCompute = computeFn().compute(grassBlades)
     computeUniformsRef.current = uniforms
     grassComputeRef.current = grassCompute
+
+    // Create reset compute shader to reset draw buffer each frame
+    const resetCompute = createResetDrawBufferCompute(drawStorage, vertexCount)
+    resetComputeRef.current = resetCompute
 
     // Find light and create material
     const light = findDirectionalLight(scene)
@@ -67,7 +97,11 @@ export function useGrassSetup({
     const lightDirection = light ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 0, -1) // Default direction
     const lightColor = light ? light.color : new THREE.Color('#ffffff')
     
-    const { material, uniforms: materialUniforms } = createGrassMaterial(grassData, positions, {
+    const { material, uniforms: materialUniforms } = createGrassMaterial(
+      grassData, 
+      positions, 
+      visibleIndicesBuffer,
+      {
       baseWidth: grassParams.baseWidth,
       tipThin: grassParams.tipThin,
       windTime: 0.0, // Will be updated in useFrame
@@ -111,6 +145,8 @@ export function useGrassSetup({
     // Create mesh and add to scene
     const mesh = new THREE.Mesh(bladeGeometry, material)
     mesh.count = grassBlades
+    meshRef.current = mesh
+    
     scene.add(mesh)
 
     if (scene.environment) {
@@ -126,9 +162,11 @@ export function useGrassSetup({
 
   return {
     grassComputeRef,
+    resetComputeRef,
     computeUniformsRef,
     materialUniformsRef,
     materialRef,
+    meshRef,
   }
 }
 

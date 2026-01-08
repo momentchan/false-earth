@@ -61,62 +61,6 @@ export default function App() {
             <GrassWebGPU />
             <CanvasCapture />
 
-            <mesh position={[0, 2, 0]}>
-                <planeGeometry args={[1, 1]} />
-                <primitive
-                    object={(() => {
-                        const material = new MeshNormalNodeMaterial();
-                        material.side = THREE.DoubleSide;
-                        // material.fragmentNode = Fn(() => {
-                        //     const normalColor = normalView.mul(0.5).add(0.5);
-                        //     return vec4(normalColor, float(1.0));
-                        // })();
-                        return material;
-                    })()}
-                />
-            </mesh>
-
-            <mesh position={[2, 3, 0]}>
-                <planeGeometry args={[1, 1]} />
-                <primitive
-                    object={(() => {
-                        const material = new MeshNormalNodeMaterial();
-                        material.side = THREE.DoubleSide;
-
-                        material.vertexNode = Fn(({ material }: { material: THREE.Material }) => {
-                            const angle = float(rotate);
-
-                            const pos = positionLocal;
-                            const posXZ = mx_rotate2d(vec2(pos.x, pos.z), angle);
-                            const rotatedPos = vec3(posXZ.x, pos.y, posXZ.y);
-
-                            const norm = normalLocal;
-                            const normXZ = mx_rotate2d(vec2(norm.x, norm.z), angle);
-                            const rotatedNormLocal = vec3(normXZ.x, norm.y, normXZ.y);
-
-                            const normalWorldVec4 = modelNormalMatrix.mul(vec4(rotatedNormLocal.x, rotatedNormLocal.y, rotatedNormLocal.z, float(0.0)));
-                            const rotatedNormWorld = normalize(normalWorldVec4.xyz);
-
-                            const worldPos = modelWorldMatrix.mul(vec4(rotatedPos.x, rotatedPos.y, rotatedPos.z, float(1.0)));
-                            return cameraProjectionMatrix.mul(cameraViewMatrix).mul(worldPos);
-                        })();
-
-                        material.normalNode = Fn(() => {
-                            const angle = float(rotate);
-                          
-                            const n = normalLocal;
-                            const nXZ = mx_rotate2d(vec2(n.x, n.z), angle);
-                            return transformNormalToView(vec3(nXZ.x, n.y, nXZ.y)).toVarying().mul(faceDirection);
-                          })();
-
-                        // material.fragmentNode = Fn(() => {
-                        //     const normalColor = normalView.mul(0.5).add(0.5);
-                        //     return vec4(normalColor, float(1.0));
-                        // })();
-                        return material;
-                    })()}
-                />
-            </mesh>
             {/* <Effects /> */}
         </Canvas>
     </>

@@ -17,7 +17,6 @@ import {
   floor,
   cross,
   pow,
-  PI,
   mx_rotate2d,
   uniform,
   sin,
@@ -27,18 +26,15 @@ import {
   length,
   sqrt,
   oneMinus,
-  step,
   smoothstep,
   varying,
   abs,
-  mx_fractal_noise_float,
-  remapClamp,
   clamp,
   mul,
   transformNormalToView,
   faceDirection,
-  reflectVector,
   pmremTexture,
+  uint,
 } from "three/tsl";
 
 /**
@@ -48,6 +44,7 @@ import {
 export function createGrassMaterial(
   grassData: ReturnType<typeof instancedArray>,
   positions: ReturnType<typeof instancedArray>,
+  visibleIndicesBuffer?: ReturnType<typeof instancedArray>,
   initialValues?: {
     baseWidth?: number;
     tipThin?: number;
@@ -332,8 +329,14 @@ export function createGrassMaterial(
     };
 
     // Get data from compute shader
-    const data = grassData.element(instanceIndex);
-    const instancePos = positions.element(instanceIndex);
+    // If using indirect drawing, read the actual blade index from visible indices buffer
+    // Otherwise, use instanceIndex directly
+    const trueIndex = visibleIndicesBuffer !== undefined 
+      ? visibleIndicesBuffer.element(instanceIndex)
+      : uint(instanceIndex);
+    
+    const data = grassData.element(trueIndex);
+    const instancePos = positions.element(trueIndex);
 
     const width = data.get("bladeWidth").toConst();
     const height = data.get("bladeHeight").toConst();

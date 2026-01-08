@@ -1,2 +1,2 @@
-export { createBladeGeometry, createPositions, createGrassData } from './grassGeometry'
+export { createBladeGeometry, createPositions, createGrassData, createVisibleIndicesBuffer } from './grassGeometry'
 

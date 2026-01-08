@@ -85,8 +85,6 @@ export function createGrassControls(config: GrassControlsConfig = {}) {
         lodEnd: { value: 15, min: 0, max: 50, step: 1 },
       }, { collapsed: true }),
       Culling: folder({
-        cullStart: { value: 15, min: 0, max: 200, step: 1 },
-        cullEnd: { value: 30, min: 0, max: 300, step: 1 },
         compensation: { value: 1.5, min: 1.0, max: 3.0, step: 0.1 },
       }, { collapsed: true }),
     }, { collapsed: true }),
