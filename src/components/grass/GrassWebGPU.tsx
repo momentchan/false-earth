@@ -61,6 +61,7 @@ export default function GrassWebGPU({ terrainUniforms, patchSize: initialPatchSi
       uTerrainSeed: uniform(0.0),
       uBaseWidth: uniform(0.35),
       uTipThin: uniform(0.9),
+      uThicknessStrength: uniform(0.10),
     };
   }, []);
 

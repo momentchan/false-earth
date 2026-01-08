@@ -3,7 +3,7 @@
 // ============================================================================
 import { struct } from 'three/tsl'
 
-export const DEFAULT_GRID_SIZE = 2048;
+export const DEFAULT_GRID_SIZE = 1024;
 export const DEFAULT_PATCH_SIZE = 40;
 
 // Legacy exports for backwards compatibility
@@ -20,16 +20,16 @@ export const DEFAULT_LOD_SEGMENTS_CONFIG = [
   {
     segments: 14,
     minDistance: 0,
-    maxDistance: 10,
+    maxDistance: 5,
   },
   {
     segments: 8,
-    minDistance: 10,
-    maxDistance: 20,
+    minDistance: 5,
+    maxDistance: 15,
   },
   {
     segments: 4,
-    minDistance: 20,
+    minDistance: 15,
     maxDistance: Infinity,
   },
 ] as const

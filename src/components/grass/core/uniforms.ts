@@ -80,6 +80,7 @@ export function updateMaterialUniforms(
   uniforms.uLightBackStrength.value = params.backLightStrength;
   uniforms.uBaseWidth.value = params.baseWidth ?? 0.35;
   uniforms.uTipThin.value = params.tipThin ?? 0.9;
+  uniforms.uThicknessStrength.value = params.thicknessStrength ?? 0.02;
 
   // Noise uniforms
   uniforms.uNoiseParams.value.set(

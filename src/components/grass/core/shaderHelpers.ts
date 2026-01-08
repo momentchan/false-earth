@@ -1,6 +1,7 @@
 import {
   vec2,
   vec3,
+  vec4,
   float,
   normalize,
   sqrt,
@@ -18,6 +19,7 @@ import {
   clamp,
   acos,
   If,
+  abs,
 } from "three/tsl";
 import { rotateAxis } from "../../terrain/terrainHelpers";
 
@@ -223,6 +225,7 @@ export function computeLightingNormal(near: number, far: number) {
       // Blend geometry normal and clump normal
       const blendFactor = heightMask.mul(distMask);
       const blendedNormal = normalize(mix(geoNormal, clumpNormal, blendFactor));
+      
       return blendedNormal;
     }
   );
@@ -257,5 +260,56 @@ export function applySlopeAlignment(
     sideRotated.assign(rotateAxis(sideRotated, axisNorm, angle));
     normalRotated.assign(rotateAxis(normalRotated, axisNorm, angle));
   });
+}
+
+/**
+ * Applies view-dependent tilt to make grass blades appear thicker when viewed from the side
+ * @param posObj - Object space position
+ * @param posW - World space position
+ * @param side - Side vector (object space)
+ * @param normal - Normal vector (object space)
+ * @param uvCoords - UV coordinates (x: width across blade, y: height along blade)
+ * @param t - Shape parameter (0 at base, 1 at tip)
+ * @param uGeometryThicknessStrength - Strength uniform for thickness effect
+ * @param modelWorldMatrix - Model to world matrix
+ * @param cameraPos - Camera position in world space
+ */
+export function applyViewDependentTilt(
+  posObj: any,
+  posW: any,
+  side: any,
+  normal: any,
+  uvCoords: any,
+  t: any,
+  uGeometryThicknessStrength: any,
+  modelWorldMatrix: any,
+  cameraPos: any
+) {
+  const camDirW = normalize(cameraPos.sub(posW));
+  
+  // Transform side vector to world space (only need side for camDirLocalY)
+  const sideW = normalize(modelWorldMatrix.mul(vec4(side, float(0.0))).xyz);
+  
+  // Convert camera direction Y component from world space to local space
+  // camDirLocalY = dot(camDirW, sideW)
+  const camDirLocalY = dot(camDirW, sideW);
+  
+  // Edge mask: stronger on edges when viewed from side
+  const edgeMask = uvCoords.x.sub(float(0.5)).mul(camDirLocalY);
+  edgeMask.mulAssign(pow(abs(camDirLocalY), float(1.2)));
+  const edgeMaskClamped = clamp(edgeMask, float(0.0), float(1.0));
+  
+  // Center mask: stronger at base, weaker at tip
+  const centerMask = pow(float(1.0).sub(t), float(0.5)).mul(pow(t.add(float(0.05)), float(0.33)));
+  const centerMaskClamped = clamp(centerMask, float(0.0), float(1.0));
+  
+  // Calculate tilt amount
+  const tilt = uGeometryThicknessStrength.mul(edgeMaskClamped).mul(centerMaskClamped);
+  
+  // Normal XZ component (horizontal normal)
+  const normalXZ = normalize(vec3(normal.x, float(0.0), normal.z));
+  
+  // Apply tilt offset
+  return posObj.add(normalXZ.mul(tilt));
 }
 

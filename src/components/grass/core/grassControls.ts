@@ -10,7 +10,7 @@ export function createGrassControls(config: GrassControlsConfig = {}) {
 
   return {
     Size: folder({
-      gridSize: { value: DEFAULT_GRID_SIZE, min: 0, max: 512, step: 64 },
+      gridSize: { value: DEFAULT_GRID_SIZE, min: 0, max: 2048, step: 64 },
       patchSize: { value: initialPatchSize, min: 0, max: 50, step: 1 },
     }, { collapsed: true }),
 
@@ -25,7 +25,7 @@ export function createGrassControls(config: GrassControlsConfig = {}) {
         bladeRandomness: { value: { x: 0.3, y: 0.3, z: 0.2 }, step: 0.01, min: 0.0, max: 1.0 },
         baseWidth: { value: 0.35, min: 0.0, max: 1.0, step: 0.01 },
         tipThin: { value: 0.9, min: 0.0, max: 2.0, step: 0.01 },
-        thicknessStrength: { value: 0.02, min: 0.0, max: 0.1, step: 0.001 },
+        thicknessStrength: { value: 0.10, min: 0.0, max: 0.2, step: 0.001 },
       }, { collapsed: true }),
       Clump: folder({
         clumpSize: { value: 0.8, min: 0.1, max: 5.0, step: 0.1 },

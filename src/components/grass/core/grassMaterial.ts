@@ -31,6 +31,9 @@ import {
   faceDirection,
   pmremTexture,
   uniform,
+  mx_fractal_noise_float,
+  mx_noise_float,
+  remapClamp,
 } from "three/tsl";
 import {
   getTerrainHeight,
@@ -45,6 +48,7 @@ import {
   applyWindSway,
   computeLightingNormal,
   applySlopeAlignment,
+  applyViewDependentTilt,
 } from "./shaderHelpers";
 
 /**
@@ -171,18 +175,12 @@ export function createGrassMaterial(
     const side = normalize(cross(ref, tangent));
     const normal = normalize(cross(side, tangent));
 
-    // Calculate width factor (matching GLSL: (shapeT + uGeometryBaseWidth) * pow(1.0 - shapeT, uGeometryTipThin))
-    const shapeT = t; // For now, shapeT = t (will differ when LOD is added)
-    const widthFactor = shapeT
+    const widthFactor = t
       .add(uniforms.uBaseWidth)
-      .mul(pow(float(1.0).sub(shapeT), uniforms.uTipThin));
+      .mul(pow(float(1.0).sub(t), uniforms.uTipThin));
 
-    // Apply width offset from spine (matching GLSL: spine + side * width * widthFactor * s)
-    // For now, skip densityCompensation and finalPresence (will be added later)
     const lposBase = spine.add(side.mul(width).mul(widthFactor).mul(s));
 
-    // Apply rotation (matching GLSL: lpos.xz = rotate2D(lpos.xz, facingAngle))
-    // Rotate only XZ components, preserving Y
     const lposXZ = mx_rotate2d(vec2(lposBase.x, lposBase.z), facingAngle);
     let lpos = vec3(lposXZ.x, lposBase.y, lposXZ.y);
 
@@ -200,24 +198,38 @@ export function createGrassMaterial(
     // Slope Alignment: Align the local "Up" vector (0,1,0) to the "Terrain Normal"
     applySlopeAlignment(tn, lpos, tangentRotated, sideRotated, normalRotated);
 
-    const position = lpos.add(instancePos);
     // Apply terrain height offset (Y-up in world space)
-    const positionWithTerrain = vec3(position.x, position.y.add(th), position.z);
-    const positionWorldVec4 = modelWorldMatrix.mul(
-      vec4(positionWithTerrain.x, positionWithTerrain.y, positionWithTerrain.z, float(1.0))
+    const position = vec3(lpos.x.add(instancePos.x), lpos.y.add(instancePos.y).add(th), lpos.z.add(instancePos.z));
+    
+    // Transform to world space for tilt calculation
+    const worldPos = modelWorldMatrix.mul(vec4(position.x, position.y, position.z, float(1.0))).xyz;
+
+    // Apply view-dependent tilt for thickness effect
+    const positionFinal = applyViewDependentTilt(
+      position,
+      worldPos,
+      sideRotated,
+      normalRotated,
+      uvCoords,
+      t,
+      uniforms.uThicknessStrength,
+      modelWorldMatrix,
+      cameraPosition
     );
-    const worldPos = positionWorldVec4.xyz;
+    
+    // Transform final position to world space
+    const worldPosFinal = modelWorldMatrix.mul(vec4(positionFinal.x, positionFinal.y, positionFinal.z, float(1.0))).xyz;
 
     // Write to varyings for fragment shader
     vGeoNormal.assign(normalRotated);
-    vHeight.assign(shapeT);
+    vHeight.assign(t);
     vToCenter.assign(toCenter);
-    vWorldPos.assign(worldPos);
+    vWorldPos.assign(worldPosFinal);
     vSide.assign(sideRotated);
     vClumpSeed.assign(clumpSeed01);
     vBladeSeed.assign(perBladeHash01); // perBladeHash01 already declared above
 
-    return cameraProjectionMatrix.mul(cameraViewMatrix).mul(positionWithTerrain);
+    return cameraProjectionMatrix.mul(cameraViewMatrix).mul(positionFinal);
   });
 
   material.vertexNode = grassVertex();
@@ -321,20 +333,20 @@ export function createGrassMaterial(
     // finalColor = finalColor.add(trans);
 
     // Noise
-    // const uvCoords = uv();
-    // const noiseUv = mul(uvCoords, vec2(uNoiseParams.x, uNoiseParams.y)).add(
-    //   vec2(vBladeSeed, vClumpSeed)
-    // );
-    // const noiseValue = mx_fractal_noise_float(noiseUv);
-    // // Remap noise from [-1, 1] to [uNoiseParams.z, uNoiseParams.w]
-    // const noiseRemapped = remapClamp(
-    //   noiseValue,
-    //   float(-1.0),
-    //   float(1.0),
-    //   uNoiseParams.z,
-    //   uNoiseParams.w
-    // );
-    // finalColor = mul(finalColor, noiseRemapped);
+    const uvCoords = uv();
+    const noiseUv = mul(uvCoords, vec2(uniforms.uNoiseParams.x, uniforms.uNoiseParams.y)).add(
+      vec2(vBladeSeed, vClumpSeed)
+    );
+    const noiseValue = mx_noise_float(noiseUv);
+    // Remap noise from [-1, 1] to [uNoiseParams.z, uNoiseParams.w]
+    const noiseRemapped = remapClamp(
+      noiseValue,
+      float(-1.0),
+      float(1.0),
+      uniforms.uNoiseParams.z,
+      uniforms.uNoiseParams.w
+    );
+    finalColor = mul(finalColor, noiseRemapped);
 
     return vec4(finalColor, float(1.0));
   })();
