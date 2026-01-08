@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu'
 import { instancedArray } from 'three/tsl'
-import { BLADE_SEGMENTS, grassStructure } from '../constants'
+import { HIGH_DETAIL_SEGMENTS, grassStructure } from '../constants'
 
 // Re-export IndirectStorageBufferAttribute for convenience
 export type IndirectStorageBufferAttribute = THREE.IndirectStorageBufferAttribute
@@ -11,8 +11,8 @@ function seededRandom(seed: number): number {
   return x - Math.floor(x)
 }
 
-export function createBladeGeometry(): THREE.PlaneGeometry {
-  const bladeGeometry = new THREE.PlaneGeometry(1, 1, 1, BLADE_SEGMENTS)
+export function createBladeGeometry(segments: number = HIGH_DETAIL_SEGMENTS): THREE.PlaneGeometry {
+  const bladeGeometry = new THREE.PlaneGeometry(1, 1, 1, segments)
   bladeGeometry.translate(0, 1 / 2, 0)
   return bladeGeometry
 }

@@ -21,7 +21,9 @@ export default function GrassWebGPU({ terrainParams, patchSize: initialPatchSize
     computeUniformsRef,
     materialUniformsRef,
     materialRef,
+    materialLowRef,
     meshRef,
+    meshLowRef,
   } = useGrassSetup({
     grassParams,
     terrainParams,
@@ -33,6 +35,7 @@ export default function GrassWebGPU({ terrainParams, patchSize: initialPatchSize
     computeUniformsRef,
     materialUniformsRef,
     materialRef,
+    materialLowRef,
   })
 
 

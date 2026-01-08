@@ -38,8 +38,11 @@ import * as THREE from "three";
 export function createGrassCompute(
   grassData: ReturnType<typeof instancedArray>,
   positions: ReturnType<typeof instancedArray>,
-  visibleIndicesBuffer?: ReturnType<typeof instancedArray>,
-  drawStorage?: ReturnType<typeof storage>,
+  // LOD: Two index buffers for High and Low detail
+  indicesHigh: ReturnType<typeof instancedArray>,
+  indicesLow: ReturnType<typeof instancedArray>,
+  drawStorageHigh: ReturnType<typeof storage>,
+  drawStorageLow: ReturnType<typeof storage>,
   initialValues?: {
     // Shape Parameters
     bladeHeightMin?: number;
@@ -65,8 +68,9 @@ export function createGrassCompute(
     windFacing?: number;
     // Culling Parameters
     maxCullDistance?: number;
-    enableCulling?: boolean;
     cullOffset?: number; // Offset to account for blade height/width in frustum culling
+    // LOD Parameters
+    lodDistance?: number; // Distance threshold for High/Low LOD switching
   }
 ) {
   // Shape Parameters
@@ -105,8 +109,10 @@ export function createGrassCompute(
 
   // Culling Parameters
   const uMaxCullDistance = uniform(initialValues?.maxCullDistance ?? 50.0);
-  const uEnableCulling = uniform(initialValues?.enableCulling ?? true);
   const uCullOffset = uniform(initialValues?.cullOffset ?? 0.8); // Default to max blade height
+  
+  // LOD Parameters
+  const uLODDistance = uniform(initialValues?.lodDistance ?? 15.0);
   
   // Camera and Model matrices for frustum culling (manually passed as uniforms)
   // These are required because renderer.compute() has no camera context
@@ -115,8 +121,15 @@ export function createGrassCompute(
   const uCameraPosition = uniform(new THREE.Vector3());
   const uModelMatrix = uniform(new THREE.Matrix4());
 
+  // Helper function to calculate distance to camera (reused in culling and LOD)
+  const calculateDistance = Fn(([instancePos]: [any]) => {
+    const worldPosBottom = uModelMatrix.mul(vec4(instancePos.x, instancePos.y, instancePos.z, float(1.0))).xyz;
+    const camPos = uCameraPosition;
+    return length(worldPosBottom.sub(camPos));
+  });
+  
   // Culling function: Performs frustum and distance culling with offset support
-  // Checks both bottom and top positions of the blade to account for blade height
+  // Returns visibility (boolean) - reuses calculateDistance for distance calculation
   const performCulling = Fn(([instancePos]: [any]) => {
     const worldPosBottom = uModelMatrix.mul(vec4(instancePos.x, instancePos.y, instancePos.z, float(1.0))).xyz;
     const worldPosTop = vec4(worldPosBottom.x, worldPosBottom.y.add(uCullOffset), worldPosBottom.z, float(1.0));
@@ -125,7 +138,6 @@ export function createGrassCompute(
     const viewMatrix = uViewMatrix;
     const projMatrix = uProjectionMatrix;
     const viewProjMatrix = projMatrix.mul(viewMatrix);
-    const camPos = uCameraPosition;
     
     // Transform bottom position to clip space
     const clipPosBottom = viewProjMatrix.mul(vec4(worldPosBottom.x, worldPosBottom.y, worldPosBottom.z, float(1.0)));
@@ -157,12 +169,9 @@ export function createGrassCompute(
     
     // Blade is in frustum if either bottom or top is visible
     const inFrustum = bottomInFrustum.or(topInFrustum);
-    
-    // Distance culling: Check if blade (using bottom position) is within max distance
-    const distToCamera = length(worldPosBottom.sub(camPos));
+    const distToCamera = calculateDistance(instancePos);
     const inDistance = distToCamera.lessThanEqual(uMaxCullDistance);
 
-    // Blade is visible if it passes both frustum and distance tests
     return inFrustum.and(inDistance);
   });
 
@@ -401,15 +410,26 @@ export function createGrassCompute(
     data.get("windStrength01").assign(windStrength);
     data.get("lodSeed01").assign(lodSeed01);
 
+    // Perform culling to check visibility
     const isVisible = performCulling(instancePos);
+    
+    // Calculate distance to camera for LOD decision
+    const distToCamera = calculateDistance(instancePos);
 
     If(isVisible, () => {
-      // Atomically increment instance count and get the index
-      const drawBuffer = drawStorage!;
-      const visibleIndex = atomicAdd(drawBuffer.get("instanceCount"), uint(1));
-
-      // Write the original instance index to visible indices buffer
-      visibleIndicesBuffer!.element(visibleIndex).assign(uint(instanceIndex));
+      // LOD Decision: Split into High and Low detail queues based on distance
+      const isHighDetail = distToCamera.lessThan(uLODDistance);
+      
+      // Route to High or Low based on distance
+      If(isHighDetail, () => {
+        // [High Detail Path] - Near camera, use detailed geometry
+        const highIndex = atomicAdd(drawStorageHigh.get("instanceCount"), uint(1));
+        indicesHigh.element(highIndex).assign(uint(instanceIndex));
+      }).Else(() => {
+        // [Low Detail Path] - Far from camera, use simplified geometry
+        const lowIndex = atomicAdd(drawStorageLow.get("instanceCount"), uint(1));
+        indicesLow.element(lowIndex).assign(uint(instanceIndex));
+      });
     });
   });
 
@@ -440,7 +460,6 @@ export function createGrassCompute(
       uWindFacing,
       // Culling Parameters
       uMaxCullDistance,
-      uEnableCulling,
       uCullOffset,
       // Camera and Model matrices for culling (manually updated each frame)
       uViewMatrix,
@@ -454,22 +473,35 @@ export function createGrassCompute(
 /**
  * Creates a lightweight compute shader to reset the indirect draw buffer
  * This should be executed before the main culling compute shader each frame
+ * Supports both single buffer and dual buffer (High/Low) modes
  */
 export function createResetDrawBufferCompute(
   drawBufferStorage: ReturnType<typeof storage>,
-  vertexCount: number
+  vertexCount: number,
+  drawBufferStorageLow?: ReturnType<typeof storage>,
+  vertexCountLow?: number
 ) {
   const resetFn = Fn(() => {
     const drawBuffer = drawBufferStorage;
     
-    // Initialize all draw indirect buffer fields
+    // Initialize all draw indirect buffer fields for High detail
     drawBuffer.get("vertexCount").assign(uint(vertexCount));
     atomicStore(drawBuffer.get("instanceCount"), uint(0));
     drawBuffer.get("firstVertex").assign(uint(0));
     drawBuffer.get("firstInstance").assign(uint(0));
     drawBuffer.get("offset").assign(uint(0));
+    
+    // Reset Low detail buffer if provided
+    if (drawBufferStorageLow !== undefined) {
+      const drawBufferLow = drawBufferStorageLow;
+      drawBufferLow.get("vertexCount").assign(uint(vertexCountLow ?? vertexCount));
+      atomicStore(drawBufferLow.get("instanceCount"), uint(0));
+      drawBufferLow.get("firstVertex").assign(uint(0));
+      drawBufferLow.get("firstInstance").assign(uint(0));
+      drawBufferLow.get("offset").assign(uint(0));
+    }
   });
 
-  // Only need 1 thread to reset the counter
+  // Only need 1 thread to reset the counter(s)
   return resetFn().compute(1);
 }

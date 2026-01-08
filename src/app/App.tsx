@@ -17,8 +17,6 @@ import { vec3, vec4, Fn, normalView, float, positionLocal, normalLocal, cameraPr
 import { extend } from "@react-three/fiber";
 extend({ MeshBasicNodeMaterial, MeshNormalNodeMaterial })
 
-
-const rotate = 90
 export default function App() {
     const [terrainParams, setTerrainParams] = useState<{ amplitude: number; frequency: number; seed: number; color: string } | undefined>(undefined)
     const [lightPosition, setLightPosition] = useState<THREE.Vector3 | undefined>(undefined)

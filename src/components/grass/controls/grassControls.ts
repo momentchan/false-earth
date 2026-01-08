@@ -1,5 +1,5 @@
 import { folder } from 'leva'
-import { DEFAULT_GRID_SIZE, DEFAULT_PATCH_SIZE, TIP_COLOR_PRESETS } from '../constants'
+import { DEFAULT_GRID_SIZE, DEFAULT_PATCH_SIZE, TIP_COLOR_PRESETS, HIGH_DETAIL_SEGMENTS, LOW_DETAIL_SEGMENTS } from '../constants'
 
 export interface GrassControlsConfig {
   initialPatchSize?: number
@@ -81,11 +81,9 @@ export function createGrassControls(config: GrassControlsConfig = {}) {
 
     Performance: folder({
       LOD: folder({
-        lodStart: { value: 5, min: 0, max: 50, step: 1 },
-        lodEnd: { value: 15, min: 0, max: 50, step: 1 },
-      }, { collapsed: true }),
-      Culling: folder({
-        enableCulling: { value: true },
+        lodDistance: { value: 15, min: 0, max: 50, step: 1 },
+        highDetailSegments: { value: HIGH_DETAIL_SEGMENTS, min: 1, max: 30, step: 1 },
+        lowDetailSegments: { value: LOW_DETAIL_SEGMENTS, min: 1, max: 10, step: 1 },
       }, { collapsed: true }),
     }, { collapsed: true }),
 

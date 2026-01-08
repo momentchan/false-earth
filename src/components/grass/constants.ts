@@ -5,7 +5,8 @@ import { struct } from 'three/tsl'
 
 export const DEFAULT_GRID_SIZE = 512;
 export const DEFAULT_PATCH_SIZE = 20;
-export const BLADE_SEGMENTS = 14;
+export const HIGH_DETAIL_SEGMENTS = 14;
+export const LOW_DETAIL_SEGMENTS = 4;  
 
 // Legacy exports for backwards compatibility
 export const GRID_SIZE = DEFAULT_GRID_SIZE;

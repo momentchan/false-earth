@@ -3,6 +3,7 @@ import { useThree } from '@react-three/fiber'
 import * as THREE from 'three/webgpu'
 import { storage } from 'three/tsl'
 import { createBladeGeometry, createPositions, createGrassData, createVisibleIndicesBuffer } from '../geometry'
+import { HIGH_DETAIL_SEGMENTS, LOW_DETAIL_SEGMENTS } from '../constants'
 import { findDirectionalLight } from '../utils/index'
 import { createGrassCompute, createResetDrawBufferCompute } from '../compute/grassCompute'
 import { createGrassMaterial } from '../materials/grassMaterial'
@@ -27,37 +28,52 @@ export function useGrassSetup({
   const computeUniformsRef = useRef<Record<string, any>>({})
   const materialUniformsRef = useRef<Record<string, any> | null>(null)
   const materialRef = useRef<THREE.MeshStandardNodeMaterial | null>(null)
+  const materialLowRef = useRef<THREE.MeshStandardNodeMaterial | null>(null)
   const meshRef = useRef<THREE.Mesh | null>(null)
+  const meshLowRef = useRef<THREE.Mesh | null>(null)
 
   useEffect(() => {
-    // Create geometry and data structures
-    const bladeGeometry = createBladeGeometry()
+    const lodDistance = grassParams.lodDistance ?? 15.0
+    const highDetailSegments = grassParams.highDetailSegments ?? HIGH_DETAIL_SEGMENTS
+    const lowDetailSegments = grassParams.lowDetailSegments ?? LOW_DETAIL_SEGMENTS
+    
+    const bladeGeometryHigh = createBladeGeometry(highDetailSegments)
+    const bladeGeometryLow = createBladeGeometry(lowDetailSegments)
+    
     const grassBlades = gridSize * gridSize
     const positions = createPositions(gridSize, patchSize)
     const grassData = createGrassData(grassBlades)
     
-    // Create culling buffers for indirect drawing
-    const visibleIndicesBuffer = createVisibleIndicesBuffer(grassBlades)
-    const vertexCount = bladeGeometry.attributes.position.count
-    // For indexed geometry, use index count; for non-indexed, use vertex count
-    const indexCount = bladeGeometry.index ? bladeGeometry.index.count : vertexCount
+    // Create LOD buffers: High and Low detail index buffers
+    const indicesHigh = createVisibleIndicesBuffer(grassBlades)
+    const indicesLow = createVisibleIndicesBuffer(grassBlades)
     
-    // Create indirect draw buffer for WebGPU indirect drawing
-    // Structure matches WebGPU drawIndirect/drawIndexedIndirect format
-    const drawBufferArray = new Uint32Array(5)
-    const drawBuffer = new THREE.IndirectStorageBufferAttribute(
-      drawBufferArray,
-      5
-    )
-    const drawStorage = storage(drawBuffer, drawIndirectStructure, 1)
-    bladeGeometry.setIndirect(drawBuffer)
+    // Calculate counts for High and Low geometries
+    const vertexCountHigh = bladeGeometryHigh.attributes.position.count
+    const indexCountHigh = bladeGeometryHigh.index ? bladeGeometryHigh.index.count : vertexCountHigh
+    const vertexCountLow = bladeGeometryLow.attributes.position.count
+    const indexCountLow = bladeGeometryLow.index ? bladeGeometryLow.index.count : vertexCountLow
+    
+    // Create indirect draw buffers for High and Low detail
+    const drawBufferArrayHigh = new Uint32Array(5)
+    const drawBufferHigh = new THREE.IndirectStorageBufferAttribute(drawBufferArrayHigh, 5)
+    const drawStorageHigh = storage(drawBufferHigh, drawIndirectStructure, 1)
+    bladeGeometryHigh.setIndirect(drawBufferHigh)
+    
+    const drawBufferArrayLow = new Uint32Array(5)
+    const drawBufferLow = new THREE.IndirectStorageBufferAttribute(drawBufferArrayLow, 5)
+    const drawStorageLow = storage(drawBufferLow, drawIndirectStructure, 1)
+    bladeGeometryLow.setIndirect(drawBufferLow)
 
-    // Create compute shader
+    // Create compute shader with LOD support
     const { computeFn, uniforms } = createGrassCompute(
       grassData, 
       positions, 
-      visibleIndicesBuffer,
-      drawStorage,
+      // LOD: High and Low buffers
+      indicesHigh,
+      indicesLow,
+      drawStorageHigh,
+      drawStorageLow,
       {
       // Shape Parameters
       bladeHeightMin: grassParams.bladeHeightMin,
@@ -81,18 +97,19 @@ export function useGrassSetup({
       windStrength: grassParams.windStrength,
       windDir: { x: grassParams.windDirX, y: grassParams.windDirZ },
       windFacing: grassParams.windFacing,
-      // Culling Parameters
+      // Culling Parameters (always enabled)
       maxCullDistance: grassParams.maxCullDistance ?? 50.0,
-      enableCulling: grassParams.enableCulling ?? true,
-      cullOffset: grassParams.bladeHeightMax ?? 0.8
+      cullOffset: grassParams.bladeHeightMax ?? 0.8,
+      // LOD Parameters
+      lodDistance: lodDistance
     })
     const grassCompute = computeFn().compute(grassBlades)
     computeUniformsRef.current = uniforms
     grassComputeRef.current = grassCompute
 
-    // Create reset compute shader to reset draw buffer each frame
-    // Use indexCount for indexed geometry, vertexCount for non-indexed
-    const resetCompute = createResetDrawBufferCompute(drawStorage, indexCount)
+    // Create reset compute shader to reset draw buffers each frame
+    // Reset both High and Low buffers
+    const resetCompute = createResetDrawBufferCompute(drawStorageHigh, indexCountHigh, drawStorageLow, indexCountLow)
     resetComputeRef.current = resetCompute
 
     // Find light and create material
@@ -101,10 +118,12 @@ export function useGrassSetup({
     const lightDirection = light ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 0, -1) // Default direction
     const lightColor = light ? light.color : new THREE.Color('#ffffff')
     
+    // Create materials for High and Low detail
+    // High detail material uses indicesHigh buffer
     const { material, uniforms: materialUniforms } = createGrassMaterial(
       grassData, 
       positions, 
-      visibleIndicesBuffer,
+      indicesHigh,
       {
       baseWidth: grassParams.baseWidth,
       tipThin: grassParams.tipThin,
@@ -146,23 +165,43 @@ export function useGrassSetup({
     materialUniformsRef.current = materialUniforms
     materialRef.current = material
 
-    // Create mesh and add to scene
-    const mesh = new THREE.Mesh(bladeGeometry, material)
+    // Create Low detail material (shares same uniforms as High detail material)
+    const { material: materialLow } = createGrassMaterial(
+      grassData,
+      positions,
+      indicesLow,
+      {
+        // Share uniforms from High detail material so they stay in sync
+        sharedUniforms: materialUniforms,
+      }
+    )
+    materialLowRef.current = materialLow
+
+    // Create meshes and add to scene
+    const mesh = new THREE.Mesh(bladeGeometryHigh, material)
     mesh.count = grassBlades
     meshRef.current = mesh
-    
     scene.add(mesh)
+
+    const meshLow = new THREE.Mesh(bladeGeometryLow, materialLow)
+    meshLow.count = grassBlades
+    meshLowRef.current = meshLow
+    scene.add(meshLow)
 
     if (scene.environment) {
       material.envMap = scene.environment
+      materialLow.envMap = scene.environment
     }
 
     return () => {
       scene.remove(mesh)
-      bladeGeometry.dispose()
+      scene.remove(meshLow)
+      bladeGeometryHigh.dispose()
+      bladeGeometryLow.dispose()
       material.dispose()
+      materialLow.dispose()
     }
-  }, [gridSize, patchSize, scene])
+  }, [gridSize, patchSize, scene, grassParams.lodDistance, grassParams.highDetailSegments, grassParams.lowDetailSegments])
 
   return {
     grassComputeRef,
@@ -170,7 +209,9 @@ export function useGrassSetup({
     computeUniformsRef,
     materialUniformsRef,
     materialRef,
+    materialLowRef,
     meshRef,
+    meshLowRef,
   }
 }
 

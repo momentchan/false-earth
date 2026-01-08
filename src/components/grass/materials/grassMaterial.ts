@@ -34,7 +34,6 @@ import {
   transformNormalToView,
   faceDirection,
   pmremTexture,
-  uint,
 } from "three/tsl";
 
 /**
@@ -44,8 +43,10 @@ import {
 export function createGrassMaterial(
   grassData: ReturnType<typeof instancedArray>,
   positions: ReturnType<typeof instancedArray>,
-  visibleIndicesBuffer?: ReturnType<typeof instancedArray>,
+  visibleIndicesBuffer: ReturnType<typeof instancedArray>,
   initialValues?: {
+    // Optional: Share uniforms from another material
+    sharedUniforms?: Record<string, any>;
     baseWidth?: number;
     tipThin?: number;
     windTime?: number;
@@ -79,21 +80,24 @@ export function createGrassMaterial(
   const baseWidth = initialValues?.baseWidth ?? 0.35;
   const tipThin = initialValues?.tipThin ?? 0.9;
 
+  // Use shared uniforms if provided, otherwise create new ones
+  const sharedUniforms = initialValues?.sharedUniforms;
+  
   // Wind uniforms
-  const uWindTime = uniform(initialValues?.windTime ?? 0.0);
-  const uWindDir = uniform(
+  const uWindTime = sharedUniforms?.uWindTime ?? uniform(initialValues?.windTime ?? 0.0);
+  const uWindDir = sharedUniforms?.uWindDir ?? uniform(
     vec2(initialValues?.windDir?.x ?? 1.0, initialValues?.windDir?.y ?? 0.0)
   );
-  const uWindSwayFreqMin = uniform(initialValues?.swayFreqMin ?? 0.4);
-  const uWindSwayFreqMax = uniform(initialValues?.swayFreqMax ?? 1.5);
-  const uWindSwayStrength = uniform(initialValues?.swayStrength ?? 0.1);
-  const uWindDistanceStart = uniform(initialValues?.windDistanceStart ?? 10.0);
-  const uWindDistanceEnd = uniform(initialValues?.windDistanceEnd ?? 30.0);
+  const uWindSwayFreqMin = sharedUniforms?.uWindSwayFreqMin ?? uniform(initialValues?.swayFreqMin ?? 0.4);
+  const uWindSwayFreqMax = sharedUniforms?.uWindSwayFreqMax ?? uniform(initialValues?.swayFreqMax ?? 1.5);
+  const uWindSwayStrength = sharedUniforms?.uWindSwayStrength ?? uniform(initialValues?.swayStrength ?? 0.1);
+  const uWindDistanceStart = sharedUniforms?.uWindDistanceStart ?? uniform(initialValues?.windDistanceStart ?? 10.0);
+  const uWindDistanceEnd = sharedUniforms?.uWindDistanceEnd ?? uniform(initialValues?.windDistanceEnd ?? 30.0);
 
   // Width shaping uniforms
-  const uMidSoft = uniform(initialValues?.midSoft ?? 0.25);
-  const uRimPos = uniform(initialValues?.rimPos ?? 0.42);
-  const uRimSoft = uniform(initialValues?.rimSoft ?? 0.03);
+  const uMidSoft = sharedUniforms?.uMidSoft ?? uniform(initialValues?.midSoft ?? 0.25);
+  const uRimPos = sharedUniforms?.uRimPos ?? uniform(initialValues?.rimPos ?? 0.42);
+  const uRimSoft = sharedUniforms?.uRimSoft ?? uniform(initialValues?.rimSoft ?? 0.03);
 
   // Color uniforms
   const baseColorValue =
@@ -113,40 +117,40 @@ export function createGrassMaterial(
       ? initialValues.lightColor
       : new THREE.Color(initialValues?.lightColor ?? "#ffffff");
 
-  const uBaseColor = uniform(
+  const uBaseColor = sharedUniforms?.uBaseColor ?? uniform(
     vec3(baseColorValue.r, baseColorValue.g, baseColorValue.b)
   );
-  const uTipColor = uniform(
+  const uTipColor = sharedUniforms?.uTipColor ?? uniform(
     vec3(tipColorValue.r, tipColorValue.g, tipColorValue.b)
   );
-  const uGroundColor = uniform(
+  const uGroundColor = sharedUniforms?.uGroundColor ?? uniform(
     vec3(groundColorValue.r, groundColorValue.g, groundColorValue.b)
   );
-  const uBladeSeedRange = uniform(
+  const uBladeSeedRange = sharedUniforms?.uBladeSeedRange ?? uniform(
     vec2(
       initialValues?.bladeSeedRange?.x ?? 0.95,
       initialValues?.bladeSeedRange?.y ?? 1.03
     )
   );
-  const uClumpSeedRange = uniform(
+  const uClumpSeedRange = sharedUniforms?.uClumpSeedRange ?? uniform(
     vec2(
       initialValues?.clumpSeedRange?.x ?? 0.9,
       initialValues?.clumpSeedRange?.y ?? 1.1
     )
   );
-  const uAOPower = uniform(initialValues?.aoPower ?? 0.6);
-  const uLightDirection = uniform(
+  const uAOPower = sharedUniforms?.uAOPower ?? uniform(initialValues?.aoPower ?? 0.6);
+  const uLightDirection = sharedUniforms?.uLightDirection ?? uniform(
     vec3(
       initialValues?.lightDirection?.x ?? 0.0,
       initialValues?.lightDirection?.y ?? 0.0,
       initialValues?.lightDirection?.z ?? -1.0
     )
   );
-  const uLightColor = uniform(
+  const uLightColor = sharedUniforms?.uLightColor ?? uniform(
     vec3(lightColorValue.r, lightColorValue.g, lightColorValue.b)
   );
-  const uLightBackStrength = uniform(initialValues?.lightBackStrength ?? 0.6);
-  const uNoiseParams = uniform(
+  const uLightBackStrength = sharedUniforms?.uLightBackStrength ?? uniform(initialValues?.lightBackStrength ?? 0.6);
+  const uNoiseParams = sharedUniforms?.uNoiseParams ?? uniform(
     vec4(
       initialValues?.noiseParams?.x ?? 1.0,
       initialValues?.noiseParams?.y ?? 3.0,
@@ -329,11 +333,8 @@ export function createGrassMaterial(
     };
 
     // Get data from compute shader
-    // If using indirect drawing, read the actual blade index from visible indices buffer
-    // Otherwise, use instanceIndex directly
-    const trueIndex = visibleIndicesBuffer !== undefined 
-      ? visibleIndicesBuffer.element(instanceIndex)
-      : uint(instanceIndex);
+    // Read the actual blade index from visible indices buffer (indirect drawing)
+    const trueIndex = visibleIndicesBuffer.element(instanceIndex);
     
     const data = grassData.element(trueIndex);
     const instancePos = positions.element(trueIndex);

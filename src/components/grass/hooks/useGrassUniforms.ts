@@ -8,6 +8,7 @@ interface UseGrassUniformsParams {
   computeUniformsRef: React.MutableRefObject<Record<string, any>>
   materialUniformsRef: React.MutableRefObject<Record<string, any> | null>
   materialRef: React.MutableRefObject<THREE.MeshStandardNodeMaterial | null>
+  materialLowRef: React.MutableRefObject<THREE.MeshStandardNodeMaterial | null>
 }
 
 export function useGrassUniforms({
@@ -16,6 +17,7 @@ export function useGrassUniforms({
   computeUniformsRef,
   materialUniformsRef,
   materialRef,
+  materialLowRef,
 }: UseGrassUniformsParams) {
   useEffect(() => {
     if (!computeUniformsRef.current) return
@@ -50,6 +52,11 @@ export function useGrassUniforms({
     uniforms.uWindStrength.value = params.windStrength
     uniforms.uWindDir.value.set(params.windDirX, params.windDirZ)
     uniforms.uWindFacing.value = params.windFacing
+    
+    // Update LOD parameter uniforms
+    if (uniforms.uLODDistance) {
+      uniforms.uLODDistance.value = params.lodDistance ?? 15.0
+    }
 
     // Update material wind parameter uniforms (vertex shader has these additional ones)
     if (materialUniformsRef.current) {
@@ -61,7 +68,7 @@ export function useGrassUniforms({
       materialUniformsRef.current.uWindDistanceEnd.value = params.windDistanceEnd
     }
 
-    // Update material properties
+    // Update material properties (both High and Low detail materials)
     if (materialRef.current) {
       materialRef.current.roughness = params.roughness
       materialRef.current.metalness = params.metalness
@@ -69,6 +76,16 @@ export function useGrassUniforms({
         materialRef.current.emissive = new THREE.Color(params.emissive)
       }
       materialRef.current.envMapIntensity = params.envMapIntensity
+    }
+    
+    // Update Low detail material properties (same values as High detail)
+    if (materialLowRef.current) {
+      materialLowRef.current.roughness = params.roughness
+      materialLowRef.current.metalness = params.metalness
+      if (params.emissive) {
+        materialLowRef.current.emissive = new THREE.Color(params.emissive)
+      }
+      materialLowRef.current.envMapIntensity = params.envMapIntensity
     }
 
     // Update material width shaping uniforms
@@ -103,6 +120,6 @@ export function useGrassUniforms({
         params.noiseRemapMax
       )
     }
-  }, [grassParams, terrainParams, computeUniformsRef, materialUniformsRef, materialRef])
+  }, [grassParams, terrainParams, computeUniformsRef, materialUniformsRef, materialRef, materialLowRef])
 }
 
