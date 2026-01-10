@@ -34,6 +34,9 @@ import {
   mx_fractal_noise_float,
   mx_noise_float,
   remapClamp,
+  normalView,
+  directionToColor,
+  normalWorld,
 } from "three/tsl";
 import {
   getTerrainHeight,
@@ -60,9 +63,13 @@ export function createGrassMaterial(
   positions: ReturnType<typeof instancedArray>,
   visibleIndicesBuffer: ReturnType<typeof instancedArray>,
   uniforms: Record<string, any>,
-  terrainUniforms?: { uTerrainAmp: any; uTerrainFreq: any; uTerrainSeed: any; uColor: any }
+  terrainUniforms?: {
+    uTerrainAmp: any;
+    uTerrainFreq: any;
+    uTerrainSeed: any;
+    uColor: any;
+  }
 ) {
-
   // Define varyings for passing data from vertex to fragment
   const vGeoNormal = varying(vec3(0.0));
   const vHeight = varying(float(0.0));
@@ -95,7 +102,7 @@ export function createGrassMaterial(
     // Get data from compute shader
     // Read the actual blade index from visible indices buffer (indirect drawing)
     const trueIndex = visibleIndicesBuffer.element(instanceIndex);
-    
+
     const data = grassData.element(trueIndex);
     const instancePos = positions.element(trueIndex);
 
@@ -116,18 +123,20 @@ export function createGrassMaterial(
     const worldBasePos = modelWorldMatrix.mul(
       vec4(instancePos.x, instancePos.y, instancePos.z, float(1.0))
     ).xyz;
-    
+
     // Calculate terrain height and normal
     const th = terrainHeight(vec2(worldBasePos.x, worldBasePos.z));
     const tn = terrainNormal(vec2(worldBasePos.x, worldBasePos.z));
-    
+
     const dist = length(cameraPosition.sub(worldBasePos));
 
     // Calculate wind distance falloff (1.0 = full wind at near, 0.0 = no wind at far)
     // If uWindDistanceEnd is not set (0), use full wind strength
     const windDistanceFalloff = select(
       uniforms.uWindDistanceEnd.greaterThan(float(0.0)),
-      oneMinus(smoothstep(uniforms.uWindDistanceStart, uniforms.uWindDistanceEnd, dist)),
+      oneMinus(
+        smoothstep(uniforms.uWindDistanceStart, uniforms.uWindDistanceEnd, dist)
+      ),
       float(1.0)
     );
     const windStrength = windStrength01.mul(windDistanceFalloff);
@@ -144,9 +153,7 @@ export function createGrassMaterial(
 
     // Apply Wind Effects
     const windDir = getWindDirection(uniforms.uWindDir);
-    const windPushed = applyWindPush(windDir)(
-      p1, p2, p3, windStrength, height
-    );
+    const windPushed = applyWindPush(windDir)(p1, p2, p3, windStrength, height);
     const windSwayed = applyWindSway(
       windDir,
       uniforms.uTime,
@@ -190,7 +197,7 @@ export function createGrassMaterial(
     // Rotate side vector for fragment shader
     const sideXZ = mx_rotate2d(vec2(side.x, side.z), facingAngle);
     let sideRotated = normalize(vec3(sideXZ.x, side.y, sideXZ.y));
-    
+
     // Rotate tangent vector
     const tangentXZ = mx_rotate2d(vec2(tangent.x, tangent.z), facingAngle);
     let tangentRotated = normalize(vec3(tangentXZ.x, tangent.y, tangentXZ.y));
@@ -199,10 +206,16 @@ export function createGrassMaterial(
     applySlopeAlignment(tn, lpos, tangentRotated, sideRotated, normalRotated);
 
     // Apply terrain height offset (Y-up in world space)
-    const position = vec3(lpos.x.add(instancePos.x), lpos.y.add(instancePos.y).add(th), lpos.z.add(instancePos.z));
-    
+    const position = vec3(
+      lpos.x.add(instancePos.x),
+      lpos.y.add(instancePos.y).add(th),
+      lpos.z.add(instancePos.z)
+    );
+
     // Transform to world space for tilt calculation
-    const worldPos = modelWorldMatrix.mul(vec4(position.x, position.y, position.z, float(1.0))).xyz;
+    const worldPos = modelWorldMatrix.mul(
+      vec4(position.x, position.y, position.z, float(1.0))
+    ).xyz;
 
     // Apply view-dependent tilt for thickness effect
     const positionFinal = applyViewDependentTilt(
@@ -216,9 +229,11 @@ export function createGrassMaterial(
       modelWorldMatrix,
       cameraPosition
     );
-    
+
     // Transform final position to world space
-    const worldPosFinal = modelWorldMatrix.mul(vec4(positionFinal.x, positionFinal.y, positionFinal.z, float(1.0))).xyz;
+    const worldPosFinal = modelWorldMatrix.mul(
+      vec4(positionFinal.x, positionFinal.y, positionFinal.z, float(1.0))
+    ).xyz;
 
     // Write to varyings for fragment shader
     vGeoNormal.assign(normalRotated);
@@ -244,7 +259,11 @@ export function createGrassMaterial(
     const au = abs(u);
 
     const mid01 = smoothstep(uniforms.uMidSoft.negate(), uniforms.uMidSoft, u);
-    const rimMask = smoothstep(uniforms.uRimPos, uniforms.uRimPos.add(uniforms.uRimSoft), au);
+    const rimMask = smoothstep(
+      uniforms.uRimPos,
+      uniforms.uRimPos.add(uniforms.uRimSoft),
+      au
+    );
     const v01 = mix(mid01, oneMinus(mid01), rimMask);
     const ny = v01.mul(2.0).sub(1.0);
 
@@ -334,9 +353,10 @@ export function createGrassMaterial(
 
     // Noise
     const uvCoords = uv();
-    const noiseUv = mul(uvCoords, vec2(uniforms.uNoiseParams.x, uniforms.uNoiseParams.y)).add(
-      vec2(vBladeSeed, vClumpSeed)
-    );
+    const noiseUv = mul(
+      uvCoords,
+      vec2(uniforms.uNoiseParams.x, uniforms.uNoiseParams.y)
+    ).add(vec2(vBladeSeed, vClumpSeed));
     const noiseValue = mx_noise_float(noiseUv);
     // Remap noise from [-1, 1] to [uNoiseParams.z, uNoiseParams.w]
     const noiseRemapped = remapClamp(
@@ -366,11 +386,13 @@ export function createGrassMaterial(
   })();
 
   // material.fragmentNode = Fn(() => {
-  //   return vec4(1,0,0, float(1.0));
+  //   const normalColor = directionToColor(normalWorld);
+  //   const rawDataColor = normalColor.pow(2.2);
+
+  //   return vec4(rawDataColor, 1);
   // })();
 
   return {
     material,
   };
 }
-

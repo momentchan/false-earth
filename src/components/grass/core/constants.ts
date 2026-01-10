@@ -3,8 +3,8 @@
 // ============================================================================
 import { struct } from 'three/tsl'
 
-export const DEFAULT_GRID_SIZE = 1024;
-export const DEFAULT_PATCH_SIZE = 40;
+export const DEFAULT_GRID_SIZE = 512;
+export const DEFAULT_PATCH_SIZE = 20;
 
 // Legacy exports for backwards compatibility
 export const GRID_SIZE = DEFAULT_GRID_SIZE;

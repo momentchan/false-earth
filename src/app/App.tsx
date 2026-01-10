@@ -1,16 +1,15 @@
-import { AdaptiveDpr, CameraControls, Environment } from "@react-three/drei";
-import { CanvasCapture } from "@packages/r3f-gist/components/utility";
+import { CameraControls, Environment } from "@react-three/drei";
 import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
 import { useState } from "react";
-import Effects from "../components/Effects";
 import { Terrain } from "../components/terrain/Terrain";
 import { DirectionalLight } from "../components/DirectionalLight";
-import { Background } from "../components/background/Background";
-import * as THREE from 'three'
-import { Perf } from "r3f-perf";
+import * as THREE from 'three/webgpu'
 import { WebGPURenderer } from "three/webgpu";
 import GrassWebGPU from "../components/grass/GrassWebGPU";
+import { NormalSphere } from "../components/NormalSphere";
+
+
 
 export default function App() {
     const [terrainUniforms, setTerrainUniforms] = useState<{ uTerrainAmp: any; uTerrainFreq: any; uTerrainSeed: any; uColor: any } | undefined>(undefined)
@@ -44,15 +43,13 @@ export default function App() {
             <color attach="background" args={['#000000']} />
             {/* <AdaptiveDpr pixelated /> */}
 
-            <CameraControls makeDefault maxPolarAngle={Math.PI / 2.2} minPolarAngle={Math.PI / 4} dollySpeed={0.5} />
+            <CameraControls makeDefault dollySpeed={0.5} />
             <Environment preset="city" environmentIntensity={0.5} />
             <DirectionalLight onPositionChange={setLightPosition} />
             {/* <Background sunPosition={lightPosition} /> */}
             <Terrain onUniformsChange={setTerrainUniforms} patchSize={patchSize} />
             <GrassWebGPU terrainUniforms={terrainUniforms} patchSize={patchSize} />
-            <CanvasCapture />
-
-            {/* <Effects /> */}
+            {/* <NormalSphere position={[0, 5, 0]} /> */}
         </Canvas>
     </>
 }
