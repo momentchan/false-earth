@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu'
+import { DEFAULT_BLADES_PER_AXIS, DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS } from './constants'
 
 /**
  * Updates compute shader uniforms from grass parameters
@@ -34,6 +35,10 @@ export function updateComputeUniforms(uniforms: Record<string, any>, params: any
 
   // Culling parameters
   uniforms.uCullOffset.value = params.bladeHeightMax ?? 0.8
+
+  uniforms.uBladesPerAxis.value = DEFAULT_BLADES_PER_AXIS
+  uniforms.uGrassAreaSize.value = DEFAULT_GRASS_AREA_SIZE
+  uniforms.uGridCellSize.value = DEFAULT_GRASS_AREA_SIZE / DEFAULT_GRID_DIVISIONS
 }
 
 /**
@@ -77,7 +82,6 @@ export function updateMaterialUniforms(
   uniforms.uAOPower.value = params.aoPower;
 
   // Lighting uniforms
-  uniforms.uLightBackStrength.value = params.backLightStrength;
   uniforms.uBaseWidth.value = params.baseWidth ?? 0.35;
   uniforms.uTipThin.value = params.tipThin ?? 0.9;
   uniforms.uThicknessStrength.value = params.thicknessStrength ?? 0.02;

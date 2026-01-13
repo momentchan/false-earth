@@ -1,6 +1,7 @@
 import {
   Fn,
   vec2,
+  vec3,
   vec4,
   fract,
   sin,
@@ -96,16 +97,15 @@ export function createGrassCompute(
   const buildLODRouting = createLODRoutingChainBuilder(lodConfigs);
 
   // Helper function to calculate distance to camera (reused in culling and LOD)
-  const calculateDistance = Fn(([instancePos]: [any]) => {
-    const worldPosBottom = uniforms.uModelMatrix.mul(vec4(instancePos.x, instancePos.y, instancePos.z, float(1.0))).xyz;
+  const calculateDistance = Fn(([worldPos]: [any]) => {
     const camPos = uniforms.uCameraPosition;
-    return length(worldPosBottom.sub(camPos));
+    return length(worldPos.sub(camPos));
   });
   
   // Culling function: Performs frustum and distance culling with offset support
   // Returns visibility (boolean) - reuses calculateDistance for distance calculation
-  const performCulling = Fn(([instancePos]: [any]) => {
-    const worldPosBottom = uniforms.uModelMatrix.mul(vec4(instancePos.x, instancePos.y, instancePos.z, float(1.0))).xyz;
+  const performCulling = Fn(([worldPos]: [any]) => {
+    const worldPosBottom = worldPos;
     const worldPosTop = vec4(worldPosBottom.x, worldPosBottom.y.add(uniforms.uCullOffset), worldPosBottom.z, float(1.0));
     
     // Get camera matrices from uniforms (manually updated each frame)
@@ -143,6 +143,7 @@ export function createGrassCompute(
     
     // Blade is in frustum if either bottom or top is visible
     const inFrustum = bottomInFrustum.or(topInFrustum);
+    return true;
     return inFrustum;
   });
 
@@ -158,6 +159,13 @@ export function createGrassCompute(
 
     // Hash functions - matching compute shader
     const hash11 = (x: any) => fract(mul(sin(mul(x, 37.0)), 43758.5453123));
+
+    // Seeded random function matching JavaScript seededRandom
+    // JavaScript: x = sin(seed) * 10000; return x - floor(x)
+    const seededRandom = (seed: any) => {
+      const x = mul(sin(seed), 10000.0);
+      return fract(x);
+    };
 
     const hash21 = (p: any) => {
       const h1 = hash11(dot(p, vec2(127.1, 311.7)));
@@ -332,12 +340,62 @@ export function createGrassCompute(
       );
     };
 
+    // Calculate jittered instance position from instanceIndex
+    const calculateJitteredPosition = Fn(([idx]: [any]) => {
+      // Calculate grid cell (x, z) from instanceIndex (local space)
+      const bladesPerAxis = uniforms.uBladesPerAxis;
+      const grassAreaSize = uniforms.uGrassAreaSize;
+      const gridX = floor(float(idx).div(bladesPerAxis));
+      const gridZ = float(idx).sub(gridX.mul(bladesPerAxis));
+
+      // Calculate base position from grid cell (without jitter, in local space)
+      // fx = x / bladesPerAxis - 0.5, fz = z / bladesPerAxis - 0.5
+      // px = fx * grassAreaSize, pz = fz * grassAreaSize
+      const fx = gridX.div(bladesPerAxis).sub(0.5);
+      const fz = gridZ.div(bladesPerAxis).sub(0.5);
+      const px = fx.mul(grassAreaSize);
+      const pz = fz.mul(grassAreaSize);
+      const instancePosRaw = vec3(px, float(0.0), pz);
+
+      // Calculate world position by adding group offset (for seed calculation consistency)
+      // Using uGroupOffset instead of uModelMatrix ensures seed is based on world position only
+      // This way, any blade at the same world grid cell will have the same seed, regardless of which instance it is
+      const worldPosRaw = instancePosRaw.add(uniforms.uGroupOffset);
+      
+      // Calculate world grid cell using grid cell size (for infinite grass)
+      const worldGridX = floor(worldPosRaw.x.div(uniforms.uGridCellSize));
+      const worldGridZ = floor(worldPosRaw.z.div(uniforms.uGridCellSize));
+
+      // Calculate jitter using seededRandom function with WORLD grid cell (for consistency)
+      // Seed is based on world grid cell, so blades at same world position have same jitter
+      const seedBase = worldGridX.mul(7919.0).add(worldGridZ.mul(7919.0)).mul(0.0001);
+      const jitterX = seededRandom(seedBase).sub(0.5).mul(0.);
+      const jitterZ = seededRandom(seedBase.add(1.0)).sub(0.5).mul(0.);
+
+      // Apply jitter to instance position (local space)
+      const instancePosLocal = vec3(
+        instancePosRaw.x.add(jitterX),
+        instancePosRaw.y,
+        instancePosRaw.z.add(jitterZ)
+      );
+
+      // Transform to world space by adding group offset
+      // Since group only has translation (no rotation/scale), simple addition is sufficient
+      // Return world position directly
+      return instancePosLocal.add(uniforms.uGroupOffset);
+    });
+
     // Main compute logic
     const data = grassData.element(instanceIndex);
-    const instancePos = positions.element(instanceIndex);
 
-    // Get worldXZ position (x and z components)
-    const worldXZ = vec2(instancePos.x, instancePos.z);
+    // Calculate jittered instance position (world space)
+    const worldPos = calculateJitteredPosition(instanceIndex);
+    
+    // Write world position to buffer for material shader to use directly
+    positions.element(instanceIndex).assign(worldPos);
+    
+    // Get worldXZ position (x and z components) - now in world space for consistent clumping/wind
+    const worldXZ = vec2(worldPos.x, worldPos.z);
 
     // Calculate Voronoi clump information
     const { toCenter, cellId } = getClumpInfo(worldXZ);
@@ -350,7 +408,7 @@ export function createGrassCompute(
     const bladeParams = getBladeParams(worldXZ, clumpParams);
 
     // Generate seeds
-    const perBladeHash01 = hash11(dot(worldXZ, vec2(37.0, 17.0)));
+    const perBladeHash01 =  hash11(dot(worldXZ, vec2(37.0, 17.0)));
     const clumpSeed01 = hash11(dot(cellId, vec2(47.3, 61.7)));
 
     // Calculate blade facing angle
@@ -379,11 +437,11 @@ export function createGrassCompute(
     data.get("perBladeHash01").assign(perBladeHash01);
     data.get("windStrength01").assign(windStrength);
 
-    // Perform culling to check visibility
-    const isVisible = performCulling(instancePos);
+    // Perform culling to check visibility (pass world position directly)
+    const isVisible = performCulling(worldPos);
     
-    // Calculate distance to camera for LOD decision
-    const distToCamera = calculateDistance(instancePos);
+    // Calculate distance to camera for LOD decision (pass world position directly)
+    const distToCamera = calculateDistance(worldPos);
 
     If(isVisible, () => {
       buildLODRouting(distToCamera, instanceIndex);

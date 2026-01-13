@@ -10,14 +10,13 @@ export interface TerrainParams {
 
 export interface GrassProps {
   terrainUniforms?: { uTerrainAmp: any; uTerrainFreq: any; uTerrainSeed: any; uColor: any }
-  patchSize?: number
-  onPatchSizeChange?: (patchSize: number) => void
 }
 
 export interface LODSegmentsConfig {
   segments: number
   minDistance: number
   maxDistance: number
+  debugColor?: [number, number, number] // RGB color for LOD debug visualization
 }
 
 export interface LODBufferConfig {
@@ -28,5 +27,6 @@ export interface LODBufferConfig {
   vertexCount: number
   minDistance: number
   maxDistance: number
+  debugColor?: [number, number, number] // RGB color for LOD debug visualization
 }
 

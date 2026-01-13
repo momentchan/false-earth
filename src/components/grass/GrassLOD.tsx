@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three/webgpu";
 import { createBladeGeometry, createGrassData, createPositions } from "./core/grassGeometry";
 import { createGrassMaterial } from "./core/grassMaterial";
+import { DEFAULT_BLADES_PER_AXIS } from "./core/constants";
 import type { LODBufferConfig } from "./core/types";
 
 interface GrassLODProps {
@@ -22,73 +23,78 @@ export function GrassLOD({
   lodBuffer,
   uniforms,
 }: GrassLODProps) {
-  const gridSize = grassParams.gridSize;
-  const patchSize = grassParams.patchSize;
+  const bladesPerAxis = DEFAULT_BLADES_PER_AXIS;
   const { scene } = useThree();
 
-  const materialRef = useRef<THREE.MeshStandardNodeMaterial | null>(null);
-
-  // Create mesh and geometry only when structural properties change
-  useEffect(() => {
-    // Don't proceed if buffers aren't ready yet
+  const mesh = useMemo(() => {
     if (!grassData || !positions || !lodBuffer) {
-      return;
+      return null;
     }
 
-    const grassBlades = gridSize * gridSize;
+    const grassBlades = bladesPerAxis * bladesPerAxis;
 
-    // Create geometry for this LOD
     const bladeGeometry = createBladeGeometry(lodBuffer.segments);
     bladeGeometry.setIndirect(lodBuffer.drawBuffer);
 
-    // Create material with uniforms
+    // Get debug color from LOD config (if available)
+    const lodDebugColor = lodBuffer.debugColor 
+      ? new THREE.Color(...lodBuffer.debugColor)
+      : new THREE.Color(1, 1, 0);
+
     const { material } = createGrassMaterial(
       grassData,
       positions,
       lodBuffer.indices,
       uniforms,
-      terrainUniforms
+      terrainUniforms,
+      lodDebugColor
     );
-    material.metalness = grassParams.metalness;
-    material.roughness = grassParams.roughness;
-    material.emissive = new THREE.Color(grassParams.emissive);
-    material.envMapIntensity = grassParams.envMapIntensity;
-    materialRef.current = material;
 
-    // Create mesh and add to scene
-    const mesh = new THREE.Mesh(bladeGeometry, material);
-    mesh.count = grassBlades;
-    scene.add(mesh);
-
+    // Get environment map from scene if available
     if (scene.environment) {
       material.envMap = scene.environment;
     }
 
-    return () => {
-      scene.remove(mesh);
-      bladeGeometry.dispose();
-      material.dispose();
-    };
+    // Create mesh - React Three Fiber will automatically add it to parent
+    const mesh = new THREE.Mesh(bladeGeometry, material);
+    mesh.count = grassBlades;
+    mesh.frustumCulled = false;
+
+    return mesh;
   }, [
-    gridSize,
-    patchSize,
-    scene,
+    bladesPerAxis,
     grassData,
     positions,
     lodBuffer,
     uniforms,
-    terrainUniforms
+    terrainUniforms,
+    scene.environment,
   ]);
 
+  // Update material properties when they change (without recreating mesh)
   useEffect(() => {
-    if (!materialRef.current) return;
-    const mat = materialRef.current;
+    if (!mesh) return;
+    const mat = mesh.material as THREE.MeshStandardNodeMaterial;
     mat.roughness = grassParams.roughness ?? 0.3;
     mat.metalness = grassParams.metalness ?? 0.5;
     mat.emissive = new THREE.Color(grassParams.emissive);
     mat.envMapIntensity = grassParams.envMapIntensity ?? 0.5;
-  }, [grassParams.roughness, grassParams.metalness, grassParams.emissive, grassParams.envMapIntensity]);
+  }, [mesh, grassParams.roughness, grassParams.metalness, grassParams.emissive, grassParams.envMapIntensity]);
 
-  return null;
+  // Cleanup geometry and material when mesh is removed
+  useEffect(() => {
+    if (!mesh) return;
+    return () => {
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) {
+        const mat = mesh.material as THREE.MeshStandardNodeMaterial;
+        mat.dispose();
+      }
+    };
+  }, [mesh]);
+
+  if (!mesh) return null;
+
+  return <primitive object={mesh} />;
 }
 

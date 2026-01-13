@@ -68,7 +68,8 @@ export function createGrassMaterial(
     uTerrainFreq: any;
     uTerrainSeed: any;
     uColor: any;
-  }
+  },
+  lodDebugColor?: THREE.Color // LOD debug color for visualization
 ) {
   // Define varyings for passing data from vertex to fragment
   const vGeoNormal = varying(vec3(0.0));
@@ -89,6 +90,13 @@ export function createGrassMaterial(
   const terrainAmp = terrainUniforms?.uTerrainAmp ?? uniform(2.5);
   const terrainFreq = terrainUniforms?.uTerrainFreq ?? uniform(0.1);
   const terrainSeed = terrainUniforms?.uTerrainSeed ?? uniform(0.0);
+
+  // LOD debug color uniform (for coloring different LODs)
+  const uLodDebugColor = uniform(
+    lodDebugColor 
+      ? vec3(lodDebugColor.r, lodDebugColor.g, lodDebugColor.b)
+      : vec3(1.0, 1.0, 1.0) // Default white if not provided
+  );
 
   const grassVertex = Fn(() => {
     // Terrain helper functions
@@ -120,13 +128,15 @@ export function createGrassMaterial(
     const toCenter = data.get("toCenter").toConst();
     const clumpSeed01 = data.get("clumpSeed01").toConst();
 
-    const worldBasePos = modelWorldMatrix.mul(
-      vec4(instancePos.x, instancePos.y, instancePos.z, float(1.0))
-    ).xyz;
+    // instancePos is already in world space (stored from compute shader)
+    const worldBasePos = instancePos;
+    
+    // Get world XZ position for wind calculations (already in world space)
+    const worldXZ = vec2(worldBasePos.x, worldBasePos.z);
 
     // Calculate terrain height and normal
-    const th = terrainHeight(vec2(worldBasePos.x, worldBasePos.z));
-    const tn = terrainNormal(vec2(worldBasePos.x, worldBasePos.z));
+    const th = terrainHeight(worldXZ);
+    const tn = terrainNormal(worldXZ);
 
     const dist = length(cameraPosition.sub(worldBasePos));
 
@@ -168,7 +178,7 @@ export function createGrassMaterial(
       height,
       perBladeHash01,
       t,
-      vec2(instancePos.x, instancePos.z)
+      worldXZ  // Use world space XZ for wind calculations, not local instancePos
     );
     p1 = windSwayed.p1;
     p2 = windSwayed.p2;
@@ -205,35 +215,37 @@ export function createGrassMaterial(
     // Slope Alignment: Align the local "Up" vector (0,1,0) to the "Terrain Normal"
     applySlopeAlignment(tn, lpos, tangentRotated, sideRotated, normalRotated);
 
-    // Apply terrain height offset (Y-up in world space)
-    const position = vec3(
-      lpos.x.add(instancePos.x),
-      lpos.y.add(instancePos.y).add(th),
-      lpos.z.add(instancePos.z)
+    // instancePos is already in world space
+    // lpos is local space blade geometry - add it directly to world position
+    // (parent group only has translation, no rotation/scale, so local-space lpos can be added directly)
+    const worldPos = vec3(
+      instancePos.x.add(lpos.x),
+      instancePos.y.add(lpos.y).add(th),
+      instancePos.z.add(lpos.z)
     );
 
-    // Transform to world space for tilt calculation
-    const worldPos = modelWorldMatrix.mul(
-      vec4(position.x, position.y, position.z, float(1.0))
-    ).xyz;
-
     // Apply view-dependent tilt for thickness effect
+    // positionFinal is in local space (object space), but we're working in world space now
+    // We need to apply the tilt delta in world space directly
     const positionFinal = applyViewDependentTilt(
-      position,
-      worldPos,
+      lpos, // Use lpos as object space position (local blade geometry)
+      worldPos, // Use worldPos as world space position
       sideRotated,
       normalRotated,
       uvCoords,
       t,
       uniforms.uThicknessStrength,
-      modelWorldMatrix,
+      modelWorldMatrix, // Still needed for transforming side vector
       cameraPosition
     );
 
-    // Transform final position to world space
-    const worldPosFinal = modelWorldMatrix.mul(
-      vec4(positionFinal.x, positionFinal.y, positionFinal.z, float(1.0))
-    ).xyz;
+    // Calculate tilt delta in local space (from lpos)
+    const tiltDelta = positionFinal.sub(lpos);
+    // Transform tilt delta to world space and add to worldPos
+    // Since parent group only has translation (no rotation), the delta direction is preserved
+    const tiltDeltaWorld = modelWorldMatrix.mul(vec4(tiltDelta.x, tiltDelta.y, tiltDelta.z, float(0.0))).xyz;
+    const worldPosFinal = worldPos.add(tiltDeltaWorld);
+    const worldPosFinal4 = vec4(worldPosFinal.x, worldPosFinal.y, worldPosFinal.z, float(1.0));
 
     // Write to varyings for fragment shader
     vGeoNormal.assign(normalRotated);
@@ -244,7 +256,10 @@ export function createGrassMaterial(
     vClumpSeed.assign(clumpSeed01);
     vBladeSeed.assign(perBladeHash01); // perBladeHash01 already declared above
 
-    return cameraProjectionMatrix.mul(cameraViewMatrix).mul(positionFinal);
+    // Transform from world space to clip space (reuse worldPosFinal4 vec4)
+    // World space → View space → Clip space
+    const viewPos = cameraViewMatrix.mul(worldPosFinal4);
+    return cameraProjectionMatrix.mul(viewPos);
   });
 
   material.vertexNode = grassVertex();
@@ -330,27 +345,6 @@ export function createGrassMaterial(
       .mul(oneMinus(mixToGroundFactor))
       .add(uniforms.uGroundColor.mul(mixToGroundFactor));
 
-    // Fake Translucency / Backlight
-    // const baseNormal = normalize(vGeoNormal);
-    // const V = normalize(cameraPosition.sub(vWorldPos));
-    // const L = normalize(uLightDirection);
-    // const lightingNormal = computeLightingNormal(
-    //   vGeoNormal,
-    //   vToCenter,
-    //   vHeight,
-    //   vWorldPos
-    // );
-    // const N = lightingNormal;
-    // const backNdL = clamp(dot(N.negate(), L), float(0.0), float(1.0));
-    // const NdV = dot(baseNormal, V);
-    // const viewGrazing = smoothstep(float(0.0), float(0.6), oneMinus(NdV));
-
-    // const thickness = pow(oneMinus(vHeight), float(1.3));
-    // const backLight = mul(mul(backNdL, viewGrazing), thickness);
-
-    // const trans = mul(mul(uLightColor, backLight), uLightBackStrength);
-    // finalColor = finalColor.add(trans);
-
     // Noise
     const uvCoords = uv();
     const noiseUv = mul(
@@ -385,11 +379,9 @@ export function createGrassMaterial(
     return vec3(0.0, 0.0, 0.0);
   })();
 
+  // Uncomment to enable LOD debug coloring
   // material.fragmentNode = Fn(() => {
-  //   const normalColor = directionToColor(normalWorld);
-  //   const rawDataColor = normalColor.pow(2.2);
-
-  //   return vec4(rawDataColor, 1);
+  //   return vec4(uLodDebugColor, 1.0);
   // })();
 
   return {

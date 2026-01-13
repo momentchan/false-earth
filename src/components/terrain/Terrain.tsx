@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu'
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { useControls } from 'leva'
+import { useFrame, useThree } from '@react-three/fiber'
 import {
     Fn,
     vec3,
@@ -11,18 +12,30 @@ import {
     positionLocal,
     modelWorldMatrix,
 } from 'three/tsl'
-import { DEFAULT_PATCH_SIZE } from '../grass/core/constants'
+import { DEFAULT_GRASS_AREA_SIZE } from '../grass/core/constants'
 import {
     getTerrainHeight,
 } from './terrainHelpers'
 
+/**
+ * Snaps a position to a grid to prevent popping artifacts
+ */
+function snapToGrid(value: number, gridSize: number): number {
+    return Math.floor(value / gridSize) * gridSize
+}
+
 export function Terrain({
     onUniformsChange,
-    patchSize = DEFAULT_PATCH_SIZE
+    grassAreaSize = DEFAULT_GRASS_AREA_SIZE
 }: {
     onUniformsChange?: (uniforms: { uTerrainAmp: any; uTerrainFreq: any; uTerrainSeed: any; uColor: any }) => void
-    patchSize?: number
+    grassAreaSize?: number
 }) {
+    const { camera } = useThree()
+    const meshRef = useRef<THREE.Mesh>(null)
+    const lastSnappedX = useRef<number>(0)
+    const lastSnappedZ = useRef<number>(0)
+    
     const terrainParams = useControls('Terrain', {
         amplitude: { value: 1.5, min: 0.1, max: 3.0, step: 0.1 },
         frequency: { value: 0.1, min: 0.01, max: 0.1, step: 0.01 },
@@ -76,11 +89,30 @@ export function Terrain({
         uniforms.uColor.value.set(colorObj.r, colorObj.g, colorObj.b)
     }, [terrainParams, uniforms])
 
+    // Follow camera position with grid snapping for infinite terrain
+    useFrame(() => {
+        if (!meshRef.current || !camera) return
+
+        const camX = camera.position.x
+        const camZ = camera.position.z
+        
+        // Snap camera XZ to grid to prevent popping
+        const snappedX = snapToGrid(camX, grassAreaSize / 20)
+        const snappedZ = snapToGrid(camZ, grassAreaSize / 20)
+        
+        // Only update if position changed (to avoid unnecessary updates)
+        if (snappedX !== lastSnappedX.current || snappedZ !== lastSnappedZ.current) {
+            meshRef.current.position.set(snappedX, 0, snappedZ)
+            lastSnappedX.current = snappedX
+            lastSnappedZ.current = snappedZ
+        }
+    })
+    return null
 
     return (
         // High segment count is needed for smooth FBM terrain
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[patchSize, patchSize, 20, 20]} />
+        <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[areaSize, areaSize, 20, 20]} />
             <primitive object={material} />
         </mesh>
     )

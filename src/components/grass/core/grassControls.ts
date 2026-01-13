@@ -1,19 +1,8 @@
 import { folder } from 'leva'
-import { DEFAULT_GRID_SIZE, DEFAULT_PATCH_SIZE, TIP_COLOR_PRESETS } from './constants'
+import { TIP_COLOR_PRESETS } from './constants'
 
-export interface GrassControlsConfig {
-  initialPatchSize?: number
-}
-
-export function createGrassControls(config: GrassControlsConfig = {}) {
-  const { initialPatchSize = DEFAULT_PATCH_SIZE } = config
-
+export function createGrassControls() {
   return {
-    Size: folder({
-      gridSize: { value: DEFAULT_GRID_SIZE, min: 0, max: 2048, step: 64 },
-      patchSize: { value: initialPatchSize, min: 0, max: 50, step: 1 },
-    }, { collapsed: true }),
-
     Geometry: folder({
       Shape: folder({
         bladeHeightMin: { value: 0.4, min: 0.1, max: 2.0, step: 0.01 },
