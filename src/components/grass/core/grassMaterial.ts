@@ -37,6 +37,8 @@ import {
   normalView,
   directionToColor,
   normalWorld,
+  If,
+  materialRoughness,
 } from "three/tsl";
 import {
   getTerrainHeight,
@@ -277,8 +279,6 @@ export function createGrassMaterial(
 
   material.vertexNode = grassVertex();
 
-  const lightingNormal = computeLightingNormal(near, far);
-
   // Set normal node for PBR lighting
   material.normalNode = Fn(() => {
     // Width shaping (Rim + Midrib)
@@ -302,19 +302,20 @@ export function createGrassMaterial(
       baseNormal.add(sideNorm.mul(ny).mul(widthNormalStrength))
     );
 
-    // This blends geometry normal with clump normal based on height and distance
-    const finalWorldNormal = lightingNormal(
-      geoNormal,
-      vToCenter,
-      vHeight,
-      vWorldPos
-    );
-
     // Transform to view space
     // Multiply by faceDirection to handle double-sided rendering correctly
     // faceDirection is 1.0 for front faces and -1.0 for back faces
-    return transformNormalToView(finalWorldNormal).mul(faceDirection);
+    return transformNormalToView(geoNormal).mul(faceDirection);
   })();
+
+  // Calculate AO factor (reusable across colorNode, roughnessNode, and envNode)
+  const calculateAO = () => {
+    return mix(
+      float(0.35),
+      float(1.0),
+      clamp(pow(vHeight, uniforms.uAOPower), float(0.0), float(1.0))
+    );
+  };
 
   // Fragment shader for color calculation
   material.colorNode = Fn(() => {
@@ -334,12 +335,8 @@ export function createGrassMaterial(
     );
     let finalColor = mul(mul(color, clumpSeedFactor), bladeSeedFactor);
 
-    // Height-based AO
-    const ao = mix(
-      float(0.35),
-      float(1.0),
-      clamp(pow(vHeight, uniforms.uAOPower), float(0.0), float(1.0))
-    );
+    // Height-based AO (reuse calculateAO)
+    const ao = calculateAO();
     finalColor = mul(finalColor, ao);
 
     // Distance-based Shading Simplification
@@ -378,14 +375,21 @@ export function createGrassMaterial(
     return vec4(finalColor, float(1.0));
   })();
 
+  // Override roughness with AO effect: bottom (low AO) is rougher, top (high AO) is smoother
+  material.roughnessNode = Fn(() => {
+    const ao = calculateAO();
+    // Base roughness from material property, modulated by AO
+    const baseRoughness = materialRoughness;
+    const roughnessMin = baseRoughness.mul(float(0.5));
+    const roughnessMax = baseRoughness.mul(float(1)); 
+    const roughness = mix(roughnessMax, roughnessMin, remapClamp(ao, float(0.35), float(1.0), float(0.0), float(1.0)));
+    return clamp(roughness, float(0.0), float(1.0));
+  })();
+
   material.envNode = Fn(() => {
     const envMap = material.envMap;
     if (envMap) {
-      const ao = mix(
-        float(0.35),
-        float(1.0),
-        clamp(pow(vHeight, uniforms.uAOPower), float(0.0), float(1.0))
-      );
+      const ao = calculateAO();
       const envSample = pmremTexture(envMap).mul(ao);
       return envSample;
     }
@@ -394,6 +398,26 @@ export function createGrassMaterial(
 
   // Uncomment to enable LOD debug coloring
   // material.fragmentNode = Fn(() => {
+  //   const trueIndex = visibleIndicesBuffer.element(instanceIndex);
+
+  //   const data = grassData.element(trueIndex);
+  //   const bladeType = floor(data.get("bladeType").toConst().mul(3.0));
+  //   const presence = data.get("presence").toConst();
+  //   // return vec4(presence, 0,0, 1.0);
+
+  //   const typeColor = vec3(0.0, 0.0, 0.0).toVar();
+  //   const isType0 = bladeType.equal(float(0.0));
+  //   const isType1 = bladeType.equal(float(1.0));
+  //   const isType2 = bladeType.equal(float(2.0));
+    
+  //   If(isType0, () => {
+  //     typeColor.assign(vec3(1.0, 0.0, 0.0));
+  //   }).ElseIf(isType1, () => {
+  //     typeColor.assign(vec3(0.0, 1.0, 0.0));
+  //   }).ElseIf(isType2, () => {
+  //     typeColor.assign(vec3(0.0, 0.0, 1.0));
+  //   });
+  //   return vec4(typeColor, 1.0);
   //   const normalColor = directionToColor(normalWorld);
   //   return vec4(normalColor, 1.0);
   //   return vec4(uLodDebugColor, 1.0);

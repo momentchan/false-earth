@@ -17,14 +17,13 @@ export function createGrassControls() {
         thicknessStrength: { value: 0.10, min: 0.0, max: 0.2, step: 0.001 },
       }, { collapsed: true }),
       Clump: folder({
-        clumpSize: { value: 0.8, min: 0.1, max: 5.0, step: 0.1 },
-        clumpRadius: { value: 1.5, min: 0., max: 2.0, step: 0.1 },
-        typeTrendScale: { value: 0.1, min: 0.01, max: 1.0, step: 0.01 },
+        clumpSize: { value: 3.5, min: 0.1, max: 5.0, step: 0.1 },
+        clumpRadius: { value: 4, min: 0., max: 5.0, step: 0.1 },
       }, { collapsed: true }),
       Angle: folder({
-        centerYaw: { value: 0.5, min: 0.0, max: 3.0, step: 0.1 },
+        centerYaw: { value: 0, min: 0.0, max: 3.0, step: 0.1 },
         bladeYaw: { value: 1.2, min: 0.0, max: 3.0, step: 0.1 },
-        clumpYaw: { value: 1.2, min: 0.0, max: 5.0, step: 0.1 },
+        clumpYaw: { value: 2.7, min: 0.0, max: 5.0, step: 0.1 },
       }, { collapsed: true }),
     }, { collapsed: true }),
 
@@ -56,13 +55,13 @@ export function createGrassControls() {
       Wind: folder({
         windDirX: { value: 1, min: -1, max: 1, step: 0.01 },
         windDirZ: { value: 0, min: -1, max: 1, step: 0.01 },
-        windSpeed: { value: 0.2, min: 0, max: 3, step: 0.01 },
-        windStrength: { value: 0.35, min: 0, max: 2, step: 0.01 },
-        windScale: { value: 0.1, min: 0.01, max: 2, step: 0.01 },
-        windFacing: { value: 0.6, min: 0.0, max: 1.0, step: 0.01 },
+        windSpeed: { value: 0.35, min: 0, max: 3, step: 0.01 },
+        windStrength: { value: 4.5, min: 0, max: 10, step: 0.01 },
+        windScale: { value: 0.1, min: 0.01, max: 1, step: 0.01 },
+        windFacing: { value: 1, min: 0.0, max: 1.0, step: 0.01 },
         swayFreqMin: { value: 0.4, min: 0.1, max: 10.0, step: 0.1 },
         swayFreqMax: { value: 1.5, min: 0.1, max: 10.0, step: 0.1 },
-        swayStrength: { value: 0.1, min: 0.0, max: 0.5, step: 0.001 },
+        swayStrength: { value: 0.05, min: 0.0, max: 0.5, step: 0.001 },
         windDistanceStart: { value: 10, min: 0, max: 100, step: 1 },
         windDistanceEnd: { value: 30, min: 0, max: 200, step: 1 },
       }, { collapsed: true }),
@@ -74,7 +73,7 @@ export function createGrassControls() {
     }, { collapsed: true }),
 
     Material: folder({
-      roughness: { value: 0.3, min: 0.0, max: 1.0, step: 0.01 },
+      roughness: { value: 0.35, min: 0.0, max: 1.0, step: 0.01 },
       metalness: { value: 0.5, min: 0.0, max: 1.0, step: 0.01 },
       emissive: { value: '#000000' },
       envMapIntensity: { value: 0.5, min: 0.0, max: 3.0, step: 0.1 },

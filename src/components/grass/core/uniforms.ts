@@ -24,7 +24,6 @@ export function updateComputeUniforms(uniforms: Record<string, any>, params: any
   uniforms.uCenterYaw.value = params.centerYaw
   uniforms.uBladeYaw.value = params.bladeYaw
   uniforms.uClumpYaw.value = params.clumpYaw
-  uniforms.uTypeTrendScale.value = params.typeTrendScale
 
   // Wind parameters
   uniforms.uWindScale.value = params.windScale ?? 0.25

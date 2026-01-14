@@ -17,6 +17,8 @@ import {
   If,
   Loop,
   float,
+  PI,
+  TWO_PI,
   clamp,
   floor,
   uint,
@@ -29,27 +31,23 @@ import {
 } from "three/tsl";
 import type { LODBufferConfig } from "./types";
 
-/**
- * Creates a grass compute function that calculates blade parameters based on position
- * Matches the logic from grassComputeShader.glsl
- * Returns the compute function and uniform nodes for updating values
- */
 export function createGrassCompute(
   grassData: ReturnType<typeof instancedArray>,
   positions: ReturnType<typeof instancedArray>,
   lodConfigs: LODBufferConfig[],
   uniforms: Record<string, any>
 ) {
-
   // Build LOD routing chain factory function
-  // This creates a function that builds the If-Else chain when called with TSL variables
   const createLODRoutingChainBuilder = (configs: LODBufferConfig[]) => {
     return (distToCamera: any, instanceIndex: any) => {
       if (configs.length === 0) return;
       if (configs.length === 1) {
         // Single LOD - no condition needed, just add to it
         const config = configs[0];
-        const lodIndex = atomicAdd(config.drawStorage.get("instanceCount"), uint(1));
+        const lodIndex = atomicAdd(
+          config.drawStorage.get("instanceCount"),
+          uint(1)
+        );
         config.indices.element(lodIndex).assign(uint(instanceIndex));
         return;
       }
@@ -57,24 +55,30 @@ export function createGrassCompute(
       // Build chain forwards: If(condition1, block1).Else(If(condition2, block2).Else(...))
       const buildChain = (index: number): any => {
         if (index >= configs.length) return;
-        
+
         const config = configs[index];
         const isLast = index === configs.length - 1;
-        
+
         // Check if distance falls within this LOD's range
         const minDist = float(config.minDistance);
-        const maxDist = config.maxDistance === Infinity 
-          ? float(1e9) // Use a very large number for Infinity
-          : float(config.maxDistance);
-        
-        const inRange = distToCamera.greaterThanEqual(minDist).and(
-          isLast || config.maxDistance === Infinity
-            ? distToCamera.lessThanEqual(maxDist)
-            : distToCamera.lessThan(maxDist)
-        );
+        const maxDist =
+          config.maxDistance === Infinity
+            ? float(1e9) // Use a very large number for Infinity
+            : float(config.maxDistance);
+
+        const inRange = distToCamera
+          .greaterThanEqual(minDist)
+          .and(
+            isLast || config.maxDistance === Infinity
+              ? distToCamera.lessThanEqual(maxDist)
+              : distToCamera.lessThan(maxDist)
+          );
 
         const lodBlock = () => {
-          const lodIndex = atomicAdd(config.drawStorage.get("instanceCount"), uint(1));
+          const lodIndex = atomicAdd(
+            config.drawStorage.get("instanceCount"),
+            uint(1)
+          );
           config.indices.element(lodIndex).assign(uint(instanceIndex));
         };
 
@@ -96,101 +100,100 @@ export function createGrassCompute(
   // Create the routing chain builder at JavaScript time
   const buildLODRouting = createLODRoutingChainBuilder(lodConfigs);
 
-  // Helper function to calculate distance to camera (reused in culling and LOD)
+  // Calculate distance to camera
   const calculateDistance = Fn(([worldPos]: [any]) => {
     const camPos = uniforms.uCameraPosition;
     return length(worldPos.sub(camPos));
   });
-  
-  // Culling function: Performs frustum and distance culling with offset support
-  // Returns visibility (boolean) - reuses calculateDistance for distance calculation
+
+  const seededRandom = (seed: any) => {
+    const x = mul(sin(seed), 10000.0);
+    return fract(x);
+  };
+
+  const hash11 = (x: any) => fract(mul(sin(mul(x, 37.0)), 43758.5453123));
+
+  const hash21 = (p: any) => {
+    const h1 = hash11(dot(p, vec2(127.1, 311.7)));
+    const h2 = hash11(dot(p, vec2(269.5, 183.3)));
+    return vec2(h1, h2);
+  };
+
+  const hash2 = (p: any) => {
+    const x = dot(p, vec2(127.1, 311.7));
+    const y = dot(p, vec2(269.5, 183.3));
+    return fract(sin(vec2(x, y)).mul(43758.5453));
+  };
+
+  const safeNormalize = (v: any) => {
+    const m2 = dot(v, v);
+    const normalized = v.mul(float(1.0).div(sqrt(m2)));
+    const fallback = vec2(1.0, 0.0);
+    return select(m2.greaterThan(float(1e-6)), normalized, fallback);
+  };
+
+  const normalizeAngle = (angle: any) => {
+    return atan(sin(angle), cos(angle));
+  };
+
+  // Perform frustum and distance culling with offset support
   const performCulling = Fn(([worldPos]: [any]) => {
     const worldPosBottom = worldPos;
-    const worldPosTop = vec4(worldPosBottom.x, worldPosBottom.y.add(uniforms.uCullOffset), worldPosBottom.z, float(1.0));
-    
+    const worldPosTop = vec4(
+      worldPosBottom.x,
+      worldPosBottom.y.add(uniforms.uCullOffset),
+      worldPosBottom.z,
+      float(1.0)
+    );
+
     // Get camera matrices from uniforms (manually updated each frame)
     const viewMatrix = uniforms.uViewMatrix;
     const projMatrix = uniforms.uProjectionMatrix;
     const viewProjMatrix = projMatrix.mul(viewMatrix);
-    
+
     // Transform bottom position to clip space
-    const clipPosBottom = viewProjMatrix.mul(vec4(worldPosBottom.x, worldPosBottom.y, worldPosBottom.z, float(1.0)));
+    const clipPosBottom = viewProjMatrix.mul(
+      vec4(worldPosBottom.x, worldPosBottom.y, worldPosBottom.z, float(1.0))
+    );
     const ndcBottom = clipPosBottom.xyz.div(clipPosBottom.w);
-    
+
     // Transform top position to clip space
     const clipPosTop = viewProjMatrix.mul(worldPosTop);
     const ndcTop = clipPosTop.xyz.div(clipPosTop.w);
-    
+
     // Check if either bottom or top position is within frustum bounds
     // Use a margin to account for blade width
     const margin = float(0.1); // Margin for blade width
-    
+
     // Check if bottom position is in frustum
-    const bottomInFrustum = ndcBottom.x.greaterThan(float(-1.0).sub(margin))
+    const bottomInFrustum = ndcBottom.x
+      .greaterThan(float(-1.0).sub(margin))
       .and(ndcBottom.x.lessThan(float(1.0).add(margin)))
       .and(ndcBottom.y.greaterThan(float(-1.0).sub(margin)))
       .and(ndcBottom.y.lessThan(float(1.0).add(margin)))
       .and(ndcBottom.z.greaterThan(float(-1.0).sub(margin)))
       .and(ndcBottom.z.lessThan(float(1.0).add(margin)));
-    
+
     // Check if top position is in frustum
-    const topInFrustum = ndcTop.x.greaterThan(float(-1.0).sub(margin))
+    const topInFrustum = ndcTop.x
+      .greaterThan(float(-1.0).sub(margin))
       .and(ndcTop.x.lessThan(float(1.0).add(margin)))
       .and(ndcTop.y.greaterThan(float(-1.0).sub(margin)))
       .and(ndcTop.y.lessThan(float(1.0).add(margin)))
       .and(ndcTop.z.greaterThan(float(-1.0).sub(margin)))
       .and(ndcTop.z.lessThan(float(1.0).add(margin)));
-    
+
     // Blade is in frustum if either bottom or top is visible
     const inFrustum = bottomInFrustum.or(topInFrustum);
-    return true;
     return inFrustum;
   });
 
   const computeFn = Fn(() => {
-    // Constants
-    const PI = float(3.14159265359);
-    const TWO_PI = float(6.28318530718);
-
-    // Extract vector components early to avoid circular references
     const bladeRandX = uniforms.uBladeRandomness.x;
     const bladeRandY = uniforms.uBladeRandomness.y;
     const bladeRandZ = uniforms.uBladeRandomness.z;
 
-    // Hash functions - matching compute shader
-    const hash11 = (x: any) => fract(mul(sin(mul(x, 37.0)), 43758.5453123));
-
-    // Seeded random function matching JavaScript seededRandom
-    // JavaScript: x = sin(seed) * 10000; return x - floor(x)
-    const seededRandom = (seed: any) => {
-      const x = mul(sin(seed), 10000.0);
-      return fract(x);
-    };
-
-    const hash21 = (p: any) => {
-      const h1 = hash11(dot(p, vec2(127.1, 311.7)));
-      const h2 = hash11(dot(p, vec2(269.5, 183.3)));
-      return vec2(h1, h2);
-    };
-
-    const hash2 = (p: any) => {
-      const x = dot(p, vec2(127.1, 311.7));
-      const y = dot(p, vec2(269.5, 183.3));
-      return fract(sin(vec2(x, y)).mul(43758.5453));
-    };
-
-    const safeNormalize = (v: any) => {
-      const m2 = dot(v, v);
-      const normalized = v.mul(float(1.0).div(sqrt(m2)));
-      const fallback = vec2(1.0, 0.0);
-      return select(m2.greaterThan(float(1e-6)), normalized, fallback);
-    };
-
-    const normalizeAngle = (angle: any) => {
-      return atan(sin(angle), cos(angle));
-    };
-
-    // Voronoi clump calculation - getClumpInfo
+    // Calculate Voronoi clump information
     const getClumpInfo = (worldXZ: any) => {
       const cell = worldXZ.div(uniforms.uClumpSize);
       const baseCellX = floor(cell.x);
@@ -226,7 +229,9 @@ export function createGrassCompute(
 
       // Calculate direction from blade position to clump center (unnormalized)
       const clumpSeed = hash2(bestCellId);
-      const clumpCenterWorld = bestCellId.add(clumpSeed).mul(uniforms.uClumpSize);
+      const clumpCenterWorld = bestCellId
+        .add(clumpSeed)
+        .mul(uniforms.uClumpSize);
       const toCenter = clumpCenterWorld.sub(worldXZ);
 
       return { toCenter, cellId: bestCellId };
@@ -235,7 +240,11 @@ export function createGrassCompute(
     // Calculate presence (fade-out factor) based on distance from clump center
     const calculatePresence = (toCenter: any) => {
       const distToCenter = length(toCenter);
-      const r = clamp(distToCenter.div(uniforms.uClumpRadius), float(0.0), float(1.0));
+      const r = clamp(
+        distToCenter.div(uniforms.uClumpRadius),
+        float(0.0),
+        float(1.0)
+      );
       const t = clamp(
         r.sub(float(0.7)).div(oneMinus(float(0.7))),
         float(0.0),
@@ -245,24 +254,35 @@ export function createGrassCompute(
       return oneMinus(smoothstepVal);
     };
 
-    // Generate per-clump parameters (height, width, bend, type)
+    // Generate per-clump parameters
+    // Uses presence to add random type variation at clump edges
     const getClumpParams = (cellId: any) => {
       const c1 = hash21(cellId.mul(11.0));
       const c2 = hash21(cellId.mul(23.0));
 
-      const clumpBaseHeight = mix(uniforms.uBladeHeightMin, uniforms.uBladeHeightMax, c1.x);
-      const clumpBaseWidth = mix(uniforms.uBladeWidthMin, uniforms.uBladeWidthMax, c1.y);
-      const clumpBaseBend = mix(uniforms.uBendAmountMin, uniforms.uBendAmountMax, c2.x);
+      const clumpBaseHeight = mix(
+        uniforms.uBladeHeightMin,
+        uniforms.uBladeHeightMax,
+        c1.x
+      );
+      const clumpBaseWidth = mix(
+        uniforms.uBladeWidthMin,
+        uniforms.uBladeWidthMax,
+        c1.y
+      );
+      const clumpBaseBend = mix(
+        uniforms.uBendAmountMin,
+        uniforms.uBendAmountMax,
+        c2.x
+      );
 
-      // Use mx_fractal_noise_float for typeTrend (matching simplexNoise2d from GLSL)
-      const typeTrend = mx_fractal_noise_float(cellId.mul(uniforms.uTypeTrendScale));
-      const typeTrendNormalized = typeTrend.mul(0.5).add(0.5);
+      const type = c2.y;
 
       return {
         height: clumpBaseHeight,
         width: clumpBaseWidth,
         bend: clumpBaseBend,
-        type: typeTrendNormalized,
+        type: type,
       };
     };
 
@@ -299,27 +319,20 @@ export function createGrassCompute(
       return clumpAngle.add(randomOffset).add(clumpYaw);
     };
 
-    // Blend angle towards wind direction
-    const applyWindFacing = (
-      baseAngle: any,
-      windDir: any,
-      windStrength01: any
-    ) => {
-      const windAngle = atan(windDir.y, windDir.x);
-      const angleDiff = atan(
-        sin(windAngle.sub(baseAngle)),
-        cos(windAngle.sub(baseAngle))
-      );
-      return baseAngle.add(angleDiff.mul(uniforms.uWindFacing.mul(windStrength01)));
-    };
-
     // Apply wind facing and normalize angle to [0, 1] range
     const applyWindFacingAndNormalize = (
       baseAngle: any,
       windStrength01: any
     ) => {
       const windDir = safeNormalize(uniforms.uWindDir);
-      const facingAngle = applyWindFacing(baseAngle, windDir, windStrength01);
+      const windAngle = atan(windDir.y, windDir.x);
+      const angleDiff = atan(
+        sin(windAngle.sub(baseAngle)),
+        cos(windAngle.sub(baseAngle))
+      );
+      const facingAngle = baseAngle.add(
+        angleDiff.mul(uniforms.uWindFacing.mul(windStrength01))
+      );
       return normalizeAngle(facingAngle).add(PI).div(TWO_PI);
     };
 
@@ -361,16 +374,19 @@ export function createGrassCompute(
       // Using uGroupOffset instead of uModelMatrix ensures seed is based on world position only
       // This way, any blade at the same world grid cell will have the same seed, regardless of which instance it is
       const worldPosRaw = instancePosRaw.add(uniforms.uGroupOffset);
-      
+
       // Calculate world grid cell using grid cell size (for infinite grass)
       const worldGridX = floor(worldPosRaw.x.div(uniforms.uGridCellSize));
       const worldGridZ = floor(worldPosRaw.z.div(uniforms.uGridCellSize));
 
       // Calculate jitter using seededRandom function with WORLD grid cell (for consistency)
       // Seed is based on world grid cell, so blades at same world position have same jitter
-      const seedBase = worldGridX.mul(7919.0).add(worldGridZ.mul(7919.0)).mul(0.0001);
-      const jitterX = seededRandom(seedBase).sub(0.5).mul(0.);
-      const jitterZ = seededRandom(seedBase.add(1.0)).sub(0.5).mul(0.);
+      const seedBase = worldGridX
+        .mul(7919.0)
+        .add(worldGridZ.mul(7919.0))
+        .mul(0.0001);
+      const jitterX = seededRandom(seedBase).sub(0.5).mul(0);
+      const jitterZ = seededRandom(seedBase.add(1.0)).sub(0.5).mul(0);
 
       // Apply jitter to instance position (local space)
       const instancePosLocal = vec3(
@@ -390,10 +406,10 @@ export function createGrassCompute(
 
     // Calculate jittered instance position (world space)
     const worldPos = calculateJitteredPosition(instanceIndex);
-    
+
     // Write world position to buffer for material shader to use directly
     positions.element(instanceIndex).assign(worldPos);
-    
+
     // Get worldXZ position (x and z components) - now in world space for consistent clumping/wind
     const worldXZ = vec2(worldPos.x, worldPos.z);
 
@@ -404,11 +420,12 @@ export function createGrassCompute(
     const presence = calculatePresence(toCenter);
 
     // Generate blade and clump parameters
+    // Use presence to add random type variation at clump edges
     const clumpParams = getClumpParams(cellId);
     const bladeParams = getBladeParams(worldXZ, clumpParams);
 
     // Generate seeds
-    const perBladeHash01 =  hash11(dot(worldXZ, vec2(37.0, 17.0)));
+    const perBladeHash01 = hash11(dot(worldXZ, vec2(37.0, 17.0)));
     const clumpSeed01 = hash11(dot(cellId, vec2(47.3, 61.7)));
 
     // Calculate blade facing angle
@@ -439,7 +456,7 @@ export function createGrassCompute(
 
     // Perform culling to check visibility (pass world position directly)
     const isVisible = performCulling(worldPos);
-    
+
     // Calculate distance to camera for LOD decision (pass world position directly)
     const distToCamera = calculateDistance(worldPos);
 
@@ -456,16 +473,13 @@ export function createGrassCompute(
 /**
  * Creates a lightweight compute shader to reset the indirect draw buffers
  * This should be executed before the main culling compute shader each frame
- * Supports multiple LOD buffers via array
  */
-export function createResetDrawBufferCompute(
-  lodConfigs: LODBufferConfig[]
-) {
+export function createResetDrawBufferCompute(lodConfigs: LODBufferConfig[]) {
   const resetFn = Fn(() => {
-    // Reset all LOD buffers - generate reset code for each buffer
+    // Reset all LOD buffers
     lodConfigs.forEach((lodConfig) => {
       const drawBuffer = lodConfig.drawStorage;
-      
+
       drawBuffer.get("vertexCount").assign(uint(lodConfig.vertexCount));
       atomicStore(drawBuffer.get("instanceCount"), uint(0));
       drawBuffer.get("firstVertex").assign(uint(0));
@@ -474,7 +488,5 @@ export function createResetDrawBufferCompute(
     });
   });
 
-  // Only need 1 thread to reset all counters
   return resetFn().compute(1);
 }
-

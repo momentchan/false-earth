@@ -21,6 +21,7 @@ export default function GrassWebGPU({ terrainUniforms }: GrassProps = {} as Gras
   const bladesPerAxis = DEFAULT_BLADES_PER_AXIS
   const grassAreaSize = DEFAULT_GRASS_AREA_SIZE
   const gridDivisions = DEFAULT_GRID_DIVISIONS
+  const gridCellSize = grassAreaSize / gridDivisions
 
   const grassComputeRef = useRef<any>(null)
   const resetComputeRef = useRef<any>(null)
@@ -106,7 +107,7 @@ export default function GrassWebGPU({ terrainUniforms }: GrassProps = {} as Gras
     };
   }, []);
 
-  // Create compute shader and shared buffers only when structural properties change
+  // Create compute shader and shared buffers
   useEffect(() => {
     const grassBlades = bladesPerAxis * bladesPerAxis
 
@@ -164,10 +165,6 @@ export default function GrassWebGPU({ terrainUniforms }: GrassProps = {} as Gras
     updateMaterialUniforms(materialUniforms, grassParams, terrainUniforms)
   }, [materialUniforms, grassParams, terrainUniforms])
 
-
-  const gridCellSize = grassAreaSize / gridDivisions
-
-
   useFrame(({ clock }) => {
     const renderer = gl as unknown as WebGPURenderer
     if (!grassComputeRef.current || !resetComputeRef.current || !camera) return
@@ -205,7 +202,7 @@ export default function GrassWebGPU({ terrainUniforms }: GrassProps = {} as Gras
     computeUniforms.uProjectionMatrix.value.copy(camera.projectionMatrix)
     computeUniforms.uCameraPosition.value.copy(camera.position)
 
-    // --- Execute Compute Shaders ---
+    // Execute Compute Shaders
     renderer.compute(resetComputeRef.current)
     renderer.compute(grassComputeRef.current)
   })

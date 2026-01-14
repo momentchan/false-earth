@@ -36,7 +36,7 @@ export function GrassLOD({
     const bladeGeometry = createBladeGeometry(lodBuffer.segments);
     bladeGeometry.setIndirect(lodBuffer.drawBuffer);
 
-    // Get debug color from LOD config (if available)
+    // Get debug color from LOD config
     const lodDebugColor = lodBuffer.debugColor 
       ? new THREE.Color(...lodBuffer.debugColor)
       : new THREE.Color(1, 1, 0);
@@ -55,7 +55,6 @@ export function GrassLOD({
       material.envMap = scene.environment;
     }
 
-    // Create mesh - React Three Fiber will automatically add it to parent
     const mesh = new THREE.Mesh(bladeGeometry, material);
     mesh.count = grassBlades;
     mesh.frustumCulled = false;
@@ -71,7 +70,7 @@ export function GrassLOD({
     scene.environment,
   ]);
 
-  // Update material properties when they change (without recreating mesh)
+  // Update material properties
   useEffect(() => {
     if (!mesh) return;
     const mat = mesh.material as THREE.MeshStandardNodeMaterial;
