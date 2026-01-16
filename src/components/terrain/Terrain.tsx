@@ -45,9 +45,9 @@ export function Terrain({
     
     const terrainParams = useControls('Terrain', {
         amplitude: { value: 1.5, min: 0.1, max: 3.0, step: 0.1 },
-        frequency: { value: 0.1, min: 0.01, max: 0.1, step: 0.01 },
+        frequency: { value: 0.05, min: 0.01, max: 0.1, step: 0.01 },
         seed: { value: 0.0, min: 0.0, max: 100.0, step: 0.1 },
-        color: { value: '#1a3310' }
+        color: { value: '#000000' }
     }, { collapsed: true })
 
 

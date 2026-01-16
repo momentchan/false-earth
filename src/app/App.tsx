@@ -9,6 +9,7 @@ import { WebGPURenderer } from "three/webgpu";
 import GrassWebGPU from "../components/grass/GrassWebGPU";
 import { GrassCullingDebug } from "../components/debug/GrassCullingDebug";
 import { DebugModeToggle } from "../components/debug/DebugModeToggle";
+import Effects from "../components/Effects";
 
 export default function App() {
     const [terrainUniforms, setTerrainUniforms] = useState<{ uTerrainAmp: any; uTerrainFreq: any; uTerrainSeed: any; uColor: any } | undefined>(undefined)
@@ -47,6 +48,8 @@ export default function App() {
             <Environment preset="city" environmentIntensity={0.5} />
             <DirectionalLight onPositionChange={setLightPosition} />
             {/* <Background sunPosition={lightPosition} /> */}
+
+            <Effects />
             
 
             {/* Toggle between normal mode and culling debug mode */}
