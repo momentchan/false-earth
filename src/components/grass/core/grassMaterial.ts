@@ -31,13 +31,8 @@ import {
   faceDirection,
   pmremTexture,
   uniform,
-  mx_fractal_noise_float,
   mx_noise_float,
   remapClamp,
-  normalView,
-  directionToColor,
-  normalWorld,
-  If,
   materialRoughness,
 } from "three/tsl";
 import {
@@ -50,8 +45,7 @@ import {
   getBezierControlPoints,
   getWindDirection,
   applyWindPush,
-  applyWindSway,
-  computeLightingNormal,
+  applyVertexSway,
   applySlopeAlignment,
   applyViewDependentTilt,
 } from "./shaderHelpers";
@@ -176,42 +170,39 @@ export function createGrassMaterial(
     let p3 = vec3(0.0, height, 0.0); // Tip point
     let { p1, p2 } = getBezierControlPoints(bladeType, height, bend);
 
-    // Apply Wind Effects
-    const windDir = getWindDirection(uniforms.uWindDir);
-    const windPushed = applyWindPush(windDir)(p1, p2, p3, windStrength, height);
-    const windSwayed = applyWindSway(
-      windDir,
-      uniforms.uTime,
-      uniforms.uWindSwayFreqMin,
-      uniforms.uWindSwayFreqMax,
-      uniforms.uWindSwayStrength
-    )(
-      windPushed.p1,
-      windPushed.p2,
-      windPushed.p3,
-      windStrength,
-      height,
-      perBladeHash01,
-      t,
-      worldXZ  // Use world space XZ for wind calculations, not local instancePos
-    );
-    p1 = windSwayed.p1;
-    p2 = windSwayed.p2;
-    p3 = windSwayed.p3;
+    // Apply Wind Push (affects control points for overall blade push)
+    const getWindDir = getWindDirection(uniforms.uWindDir);
+    const windPushed = applyWindPush(getWindDir)(p1, p2, p3, windStrength, height);
+    p1 = windPushed.p1;
+    p2 = windPushed.p2;
+    p3 = windPushed.p3;
 
     // Calculate spine (position along Bezier curve) and tangent
     const spine = bezier3(p0, p1, p2, p3, t);
     const tangent = normalize(bezier3Tangent(p0, p1, p2, p3, t));
 
+    // Calculate side direction (perpendicular to tangent, used for blade width)
     const ref = vec3(0.0, 0.0, 1.0);
     const side = normalize(cross(ref, tangent));
+
+    // Apply sin-like sway effect to vertices at top of blade
+    const vertexSway = applyVertexSway(
+      getWindDir,
+      uniforms.uTime,
+      uniforms.uWindSwayFreqMin,
+      uniforms.uWindSwayFreqMax,
+      uniforms.uWindSwayStrength
+    );
+    const swayOffset = vertexSway(side, t, height, windStrength, perBladeHash01, worldXZ);
+    const spineWithSway = spine.add(swayOffset);
     const normal = normalize(cross(side, tangent));
 
     const widthFactor = t
       .add(uniforms.uBaseWidth)
       .mul(pow(float(1.0).sub(t), uniforms.uTipThin));
 
-    const lposBase = spine.add(side.mul(width).mul(widthFactor).mul(s));
+    // Use spine with sway instead of original spine
+    const lposBase = spineWithSway.add(side.mul(width).mul(widthFactor).mul(s));
 
     const lposXZ = mx_rotate2d(vec2(lposBase.x, lposBase.z), facingAngle);
     let lpos = vec3(lposXZ.x, lposBase.y, lposXZ.y);

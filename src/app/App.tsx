@@ -1,20 +1,19 @@
 import { CameraControls, Environment } from "@react-three/drei";
 import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Terrain } from "../components/terrain/Terrain";
 import { DirectionalLight } from "../components/DirectionalLight";
 import * as THREE from 'three/webgpu'
 import { WebGPURenderer } from "three/webgpu";
 import GrassWebGPU from "../components/grass/GrassWebGPU";
-import { NormalSphere } from "../components/NormalSphere";
-import { KeyboardCameraControls } from "../components/interaction";
-import { Background } from "../components/Background";
-
+import { GrassCullingDebug } from "../components/debug/GrassCullingDebug";
+import { DebugModeToggle } from "../components/debug/DebugModeToggle";
 
 export default function App() {
     const [terrainUniforms, setTerrainUniforms] = useState<{ uTerrainAmp: any; uTerrainFreq: any; uTerrainSeed: any; uColor: any } | undefined>(undefined)
     const [lightPosition, setLightPosition] = useState<THREE.Vector3 | undefined>(undefined)
+    const [debugMode, setDebugMode] = useState(false) // Toggle for culling debug mode
 
     return <>
         <LevaWrapper collapsed={true} />
@@ -24,7 +23,7 @@ export default function App() {
             camera={{
                 fov: 45,
                 near: 0.1,
-                far: 100,
+                far: 200,
                 position: [0, 3, 10]
             }}
             gl={(canvas) => {
@@ -38,28 +37,29 @@ export default function App() {
             dpr={[1, 2]}
             performance={{ min: 0.5, max: 1 }}
         >
-            {/* <Perf /> */}
 
             <color attach="background" args={['#000000']} />
-            {/* <AdaptiveDpr pixelated /> */}
 
             <CameraControls 
-                // ref={cameraControlsRef}
                 makeDefault 
                 dollySpeed={0.5}
             />
-            {/* <KeyboardCameraControls 
-                // cameraControlsRef={cameraControlsRef}
-                moveSpeed={2.0} 
-                enableVerticalMovement={true} 
-                verticalSpeed={3.0} 
-            /> */}
             <Environment preset="city" environmentIntensity={0.5} />
             <DirectionalLight onPositionChange={setLightPosition} />
             {/* <Background sunPosition={lightPosition} /> */}
-            <Terrain onUniformsChange={setTerrainUniforms} />
-            <GrassWebGPU terrainUniforms={terrainUniforms} />
-            {/* <NormalSphere position={[0, 5, 0]} /> */}
+            
+
+            {/* Toggle between normal mode and culling debug mode */}
+            <DebugModeToggle onToggle={() => setDebugMode(prev => !prev)} />
+            {debugMode ? (
+                <GrassCullingDebug />
+            ) : (
+                <>
+                    <Terrain onUniformsChange={setTerrainUniforms} />
+                    <GrassWebGPU terrainUniforms={terrainUniforms} />
+                </>
+            )}
+            
         </Canvas>
     </>
 }

@@ -155,10 +155,17 @@ export function createGrassCompute(
     const clipPosBottom = viewProjMatrix.mul(
       vec4(worldPosBottom.x, worldPosBottom.y, worldPosBottom.z, float(1.0))
     );
+    
+    // [Fix] Check if point is in front of camera (w > 0) before NDC division
+    // Points behind camera have negative w, which causes incorrect NDC values
+    const isBottomInFront = clipPosBottom.w.greaterThan(float(0.0));
     const ndcBottom = clipPosBottom.xyz.div(clipPosBottom.w);
 
     // Transform top position to clip space
     const clipPosTop = viewProjMatrix.mul(worldPosTop);
+    
+    // [Fix] Check if point is in front of camera (w > 0)
+    const isTopInFront = clipPosTop.w.greaterThan(float(0.0));
     const ndcTop = clipPosTop.xyz.div(clipPosTop.w);
 
     // Check if either bottom or top position is within frustum bounds
@@ -166,21 +173,25 @@ export function createGrassCompute(
     const margin = float(0.1); // Margin for blade width
 
     // Check if bottom position is in frustum
-    const bottomInFrustum = ndcBottom.x
-      .greaterThan(float(-1.0).sub(margin))
+    // Must satisfy: "in front of camera" AND "within frustum bounds"
+    const bottomInFrustum = isBottomInFront
+      .and(ndcBottom.x.greaterThan(float(-1.0).sub(margin)))
       .and(ndcBottom.x.lessThan(float(1.0).add(margin)))
       .and(ndcBottom.y.greaterThan(float(-1.0).sub(margin)))
       .and(ndcBottom.y.lessThan(float(1.0).add(margin)))
-      .and(ndcBottom.z.greaterThan(float(-1.0).sub(margin)))
+      // WebGPU uses [0, 1] depth range instead of [-1, 1]
+      .and(ndcBottom.z.greaterThan(float(0.0).sub(margin)))
       .and(ndcBottom.z.lessThan(float(1.0).add(margin)));
 
     // Check if top position is in frustum
-    const topInFrustum = ndcTop.x
-      .greaterThan(float(-1.0).sub(margin))
+    // Must satisfy: "in front of camera" AND "within frustum bounds"
+    const topInFrustum = isTopInFront
+      .and(ndcTop.x.greaterThan(float(-1.0).sub(margin)))
       .and(ndcTop.x.lessThan(float(1.0).add(margin)))
       .and(ndcTop.y.greaterThan(float(-1.0).sub(margin)))
       .and(ndcTop.y.lessThan(float(1.0).add(margin)))
-      .and(ndcTop.z.greaterThan(float(-1.0).sub(margin)))
+      // WebGPU uses [0, 1] depth range instead of [-1, 1]
+      .and(ndcTop.z.greaterThan(float(0.0).sub(margin)))
       .and(ndcTop.z.lessThan(float(1.0).add(margin)));
 
     // Blade is in frustum if either bottom or top is visible

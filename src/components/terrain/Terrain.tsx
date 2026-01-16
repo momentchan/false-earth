@@ -5,36 +5,43 @@ import { useFrame, useThree } from '@react-three/fiber'
 import {
     Fn,
     vec3,
-    vec2,
     vec4,
     float,
     uniform,
     positionLocal,
     modelWorldMatrix,
 } from 'three/tsl'
-import { DEFAULT_GRASS_AREA_SIZE } from '../grass/core/constants'
+import { DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS, DEFAULT_BLADES_PER_AXIS } from '../grass/core/constants'
 import {
     getTerrainHeight,
 } from './terrainHelpers'
 
-/**
- * Snaps a position to a grid to prevent popping artifacts
- */
-function snapToGrid(value: number, gridSize: number): number {
-    return Math.floor(value / gridSize) * gridSize
-}
 
 export function Terrain({
     onUniformsChange,
-    grassAreaSize = DEFAULT_GRASS_AREA_SIZE
+    grassAreaSize = DEFAULT_GRASS_AREA_SIZE,
+    cullCamera
 }: {
     onUniformsChange?: (uniforms: { uTerrainAmp: any; uTerrainFreq: any; uTerrainSeed: any; uColor: any }) => void
     grassAreaSize?: number
+    cullCamera?: THREE.PerspectiveCamera
 }) {
-    const { camera } = useThree()
+    const { camera: defaultCamera } = useThree()
+    const cameraToUse = cullCamera || defaultCamera
+    
     const meshRef = useRef<THREE.Mesh>(null)
-    const lastSnappedX = useRef<number>(0)
-    const lastSnappedZ = useRef<number>(0)
+    
+    const gridDivisions = DEFAULT_GRID_DIVISIONS
+    const bladesPerAxis = DEFAULT_BLADES_PER_AXIS
+    
+    const bladeSpacing = grassAreaSize / bladesPerAxis
+    
+    const rawGridCellSize = grassAreaSize / gridDivisions
+    
+    const gridCellSize = Math.round(rawGridCellSize / bladeSpacing) * bladeSpacing
+    
+    const currentGridCellX = useRef<number | null>(null)
+    const currentGridCellZ = useRef<number | null>(null)
     
     const terrainParams = useControls('Terrain', {
         amplitude: { value: 1.5, min: 0.1, max: 3.0, step: 0.1 },
@@ -68,6 +75,7 @@ export function Terrain({
         const mat = new THREE.MeshBasicNodeMaterial()
         mat.side = THREE.DoubleSide
         mat.colorNode = vec4(uniforms.uColor, float(1.0))
+        // mat.wireframe = true
 
         mat.positionNode = Fn(() => {
             const localPos = positionLocal
@@ -91,28 +99,33 @@ export function Terrain({
 
     // Follow camera position with grid snapping for infinite terrain
     useFrame(() => {
-        if (!meshRef.current || !camera) return
+        if (!meshRef.current || !cameraToUse) return
 
-        const camX = camera.position.x
-        const camZ = camera.position.z
-        
-        // Snap camera XZ to grid to prevent popping
-        const snappedX = snapToGrid(camX, grassAreaSize / 20)
-        const snappedZ = snapToGrid(camZ, grassAreaSize / 20)
-        
-        // Only update if position changed (to avoid unnecessary updates)
-        if (snappedX !== lastSnappedX.current || snappedZ !== lastSnappedZ.current) {
+        const currentCellX = Math.floor(cameraToUse.position.x / gridCellSize)
+        const currentCellZ = Math.floor(cameraToUse.position.z / gridCellSize)
+
+        // Initialize or update if grid cell changed
+        if (
+            currentGridCellX.current === null || 
+            currentGridCellZ.current === null ||
+            currentCellX !== currentGridCellX.current || 
+            currentCellZ !== currentGridCellZ.current
+        ) {
+            const snappedX = currentCellX * gridCellSize
+            const snappedZ = currentCellZ * gridCellSize
+
             meshRef.current.position.set(snappedX, 0, snappedZ)
-            lastSnappedX.current = snappedX
-            lastSnappedZ.current = snappedZ
+            meshRef.current.updateMatrixWorld(true)
+
+            currentGridCellX.current = currentCellX
+            currentGridCellZ.current = currentCellZ
         }
     })
-    return null
 
     return (
-        // High segment count is needed for smooth FBM terrain
+        // High segment count is needed for smooth FBM terrain to match grass density
         <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[areaSize, areaSize, 20, 20]} />
+            <planeGeometry args={[grassAreaSize, grassAreaSize, 128, 128]} />
             <primitive object={material} />
         </mesh>
     )

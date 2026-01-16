@@ -10,6 +10,7 @@ export interface TerrainParams {
 
 export interface GrassProps {
   terrainUniforms?: { uTerrainAmp: any; uTerrainFreq: any; uTerrainSeed: any; uColor: any }
+  cullCamera?: THREE.PerspectiveCamera // Camera used for culling calculation (separate from render camera)
 }
 
 export interface LODSegmentsConfig {

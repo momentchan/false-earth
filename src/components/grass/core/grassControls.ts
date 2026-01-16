@@ -61,9 +61,9 @@ export function createGrassControls() {
         windFacing: { value: 1, min: 0.0, max: 1.0, step: 0.01 },
         swayFreqMin: { value: 0.4, min: 0.1, max: 10.0, step: 0.1 },
         swayFreqMax: { value: 1.5, min: 0.1, max: 10.0, step: 0.1 },
-        swayStrength: { value: 0.05, min: 0.0, max: 0.5, step: 0.001 },
-        windDistanceStart: { value: 10, min: 0, max: 100, step: 1 },
-        windDistanceEnd: { value: 30, min: 0, max: 200, step: 1 },
+        swayStrength: { value: 0.01, min: 0.0, max: 0.05, step: 0.001 },
+        windDistanceStart: { value: 50, min: 0, max: 100, step: 1 },
+        windDistanceEnd: { value: 100, min: 0, max: 200, step: 1 },
       }, { collapsed: true }),
     }, { collapsed: true }),
 

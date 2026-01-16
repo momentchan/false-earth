@@ -206,6 +206,64 @@ export function applyWindSway(
 }
 
 /**
+ * Returns function that calculates vertex sway offset for top of blade
+ * Creates sin-like swaying motion perpendicular to blade axis
+ */
+export function applyVertexSway(
+  getWindDirection: () => any,
+  uTime: any,
+  uWindSwayFreqMin: any,
+  uWindSwayFreqMax: any,
+  uWindSwayStrength: any
+) {
+  return (
+    side: any,
+    t: any,
+    height: any,
+    windStrength: any,
+    perBladeHash01: any,
+    worldXZ: any
+  ) => {
+    // Only affects vertices near the tip (t close to 1.0)
+    const topSwayMask = smoothstep(float(0.5), float(1.0), t);
+    
+    // Get wind direction for wave calculation
+    const W = getWindDirection();
+    const windDir2 = vec2(W.x, W.z);
+    
+    // Gust envelope (slow breathing)
+    const seed = mod(perBladeHash01.mul(3.567), float(1.0));
+    const gust = float(0.65).add(
+      float(0.35).mul(sin(uTime.mul(0.35).add(seed.mul(6.28318))))
+    );
+    
+    // Traveling wave along wind direction
+    const wave = dot(worldXZ, windDir2).mul(0.15);
+    
+    // Per-blade frequency variation
+    const baseFreq = mix(uWindSwayFreqMin, uWindSwayFreqMax, seed);
+    const phase = perBladeHash01.mul(6.28318).add(wave);
+    
+    // Sin wave for sway (low freq main sway + high freq flutter)
+    const low = sin(uTime.mul(baseFreq).add(phase).add(t.mul(2.2)));
+    const high = sin(
+      uTime.mul(baseFreq.mul(5.0)).add(phase.mul(1.7)).add(t.mul(5.0))
+    );
+    
+    // Amplitude increases with height and wind strength
+    const amp = height.mul(windStrength);
+    const swayLow = amp.mul(gust).mul(uWindSwayStrength);
+    const swayHigh = amp.mul(0.8).mul(uWindSwayStrength);
+    
+    // Combine low and high frequency sway
+    const swayAmount = low.mul(swayLow).add(high.mul(swayHigh));
+    
+    // Apply sway in side direction, scaled by top mask
+    return side.mul(swayAmount).mul(topSwayMask);
+  };
+}
+
+/**
  * Returns function that computes lighting normal by blending geometry normal with clump normal
  * Based on height and distance from camera
  */

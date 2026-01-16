@@ -12,8 +12,11 @@ import { updateComputeUniforms, updateMaterialUniforms } from './core/uniforms'
 import { GrassLOD } from './GrassLOD'
 import type { GrassProps, LODBufferConfig } from './core/types'
 
-export default function GrassWebGPU({ terrainUniforms }: GrassProps = {} as GrassProps) {
-  const { gl, camera } = useThree()
+export default function GrassWebGPU({ terrainUniforms, cullCamera }: GrassProps = {} as GrassProps) {
+  const { gl, camera: defaultCamera } = useThree()
+  
+  // Use cullCamera if provided, otherwise use default render camera
+  const cameraToUse = cullCamera || defaultCamera
 
   const [grassParams] = useControls('Grass', () => createGrassControls(), { collapsed: true })
 
@@ -167,7 +170,7 @@ export default function GrassWebGPU({ terrainUniforms }: GrassProps = {} as Gras
 
   useFrame(({ clock }) => {
     const renderer = gl as unknown as WebGPURenderer
-    if (!grassComputeRef.current || !resetComputeRef.current || !camera) return
+    if (!grassComputeRef.current || !resetComputeRef.current || !cameraToUse) return
 
     const elapsedTime = clock.getElapsedTime()
 
@@ -176,8 +179,9 @@ export default function GrassWebGPU({ terrainUniforms }: GrassProps = {} as Gras
 
     // Infinite Grass Position Update
     if (groupRef.current) {
-      const currentCellX = Math.floor(camera.position.x / gridCellSize)
-      const currentCellZ = Math.floor(camera.position.z / gridCellSize)
+      // Use cullCamera position for snapping (follows player camera, not god view)
+      const currentCellX = Math.floor(cameraToUse.position.x / gridCellSize)
+      const currentCellZ = Math.floor(cameraToUse.position.z / gridCellSize)
 
       if (currentCellX !== currentGridCellX.current || currentCellZ !== currentGridCellZ.current) {
         const snappedX = currentCellX * gridCellSize
@@ -197,10 +201,13 @@ export default function GrassWebGPU({ terrainUniforms }: GrassProps = {} as Gras
     }
 
     // Update camera matrices (for Culling)
-    camera.updateMatrixWorld()
-    computeUniforms.uViewMatrix.value.copy(camera.matrixWorldInverse)
-    computeUniforms.uProjectionMatrix.value.copy(camera.projectionMatrix)
-    computeUniforms.uCameraPosition.value.copy(camera.position)
+    // Use cullCamera if provided, otherwise use default render camera
+    if (cameraToUse) {
+      cameraToUse.updateMatrixWorld()
+      computeUniforms.uViewMatrix.value.copy(cameraToUse.matrixWorldInverse)
+      computeUniforms.uProjectionMatrix.value.copy(cameraToUse.projectionMatrix)
+      computeUniforms.uCameraPosition.value.copy(cameraToUse.position)
+    }
 
     // Execute Compute Shaders
     renderer.compute(resetComputeRef.current)
