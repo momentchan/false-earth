@@ -58,7 +58,7 @@ export function createGrassMaterial(
   positions: ReturnType<typeof instancedArray>,
   visibleIndicesBuffer: ReturnType<typeof instancedArray>,
   uniforms: Record<string, any>,
-  heightmapTexture?: THREE.StorageTexture,
+  heightmap?: THREE.StorageTexture,
   lodDebugColor?: THREE.Color // LOD debug color for visualization
 ) {
 
@@ -117,7 +117,7 @@ export function createGrassMaterial(
     const worldXZ = vec2(instancePos.x, instancePos.z);
 
     // Sample terrain height and normal from heightmap texture
-    const { th, tn } = sampleTerrainHeightAndNormal(worldXZ, uGroupOffset, heightmapTexture);
+    const { th, tn } = sampleTerrainHeightAndNormal(worldXZ, uGroupOffset, heightmap);
 
     const dist = length(cameraPosition.sub(instancePos));
 

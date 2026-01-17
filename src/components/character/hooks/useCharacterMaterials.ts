@@ -1,35 +1,35 @@
-import { useEffect } from 'react';
-import { useTexture } from '@react-three/drei';
+import { useEffect, useRef, MutableRefObject } from 'react';
 import * as THREE from 'three/webgpu';
-import { Object3D } from 'three';
+import { Object3D, Group } from 'three';
+import { BODY_MESH_NAMES } from '../constants';
+import { useCharacterTextures } from './useCharacterTextures';
+import { useCharacterHeightmap } from './useCharacterHeightmap';
 
-const BODY_MESH_NAMES = [
-  'Astronaut_Suit_Body_Detail_01_Mesh',
-  'Astronaut_Suit_Body_Mesh',
-  'Astronaut_Suit_Shoes_Mesh',
-];
+export function useCharacterMaterials(clonedMesh: Object3D | null, heightmap?: THREE.StorageTexture | THREE.DataTexture, groupRef?: MutableRefObject<Group | null>) {
+  // Load textures
+  const { bodyTex, detailTex } = useCharacterTextures();
 
-export function useCharacterMaterials(clonedMesh: Object3D | null) {
-  // Load textures using useTexture hook
-  const bodyTex = useTexture({
-    map: 'textures/Body/Astronaut_Suit_Body_Albedo.png',
-    metalnessMap: 'textures/Body/Astronaut_Suit_Body_Metallic.png',
-    aoMap: 'textures/Body/Astronaut_Suit_Body_Ao.png',
-    normalMap: 'textures/Body/Astronaut_Suit_Body_Normals.png'
-  });
-  bodyTex.map.colorSpace = THREE.SRGBColorSpace;
-
-  const detailTex = useTexture({
-    map: 'textures/Details/Astronaut_Suit_Details_Albedo.png',
-    metalnessMap: 'textures/Details/Astronaut_Suit_Details_Metallic.png',
-    aoMap: 'textures/Details/Astronaut_Suit_Details_Ao.png',
-    normalMap: 'textures/Details/Astronaut_Suit_Details_Normals.png'
-  });
-  detailTex.map.colorSpace = THREE.SRGBColorSpace;
+  // Track if materials have been assigned to prevent re-assignment
+  const materialsAssignedRef = useRef(false);
+  const lastBodyTexMapRef = useRef<THREE.Texture | null>(null);
+  const lastDetailTexMapRef = useRef<THREE.Texture | null>(null);
+  const lastHeightmapRef = useRef<THREE.StorageTexture | THREE.DataTexture | null>(null);
+  const bodyMatRef = useRef<THREE.MeshStandardNodeMaterial | null>(null);
+  const detailMatRef = useRef<THREE.MeshStandardNodeMaterial | null>(null);
 
   // Assign materials in useEffect to avoid re-cloning on texture changes
   useEffect(() => {
     if (!clonedMesh || !bodyTex.map || !detailTex.map) return;
+
+    // Check if textures have actually changed
+    const bodyTexChanged = lastBodyTexMapRef.current !== bodyTex.map;
+    const detailTexChanged = lastDetailTexMapRef.current !== detailTex.map;
+    const heightmapChanged = lastHeightmapRef.current !== heightmap;
+    
+    // Only reassign if textures changed or materials haven't been assigned yet
+    if (materialsAssignedRef.current && !bodyTexChanged && !detailTexChanged && !heightmapChanged) {
+      return;
+    }
 
     // Create materials
     const bodyMat = new THREE.MeshStandardNodeMaterial({
@@ -46,6 +46,10 @@ export function useCharacterMaterials(clonedMesh: Object3D | null) {
       metalnessMap: detailTex.metalnessMap,
     });
 
+    // Store material refs
+    bodyMatRef.current = bodyMat;
+    detailMatRef.current = detailMat;
+
     // Assign materials based on mesh names
     clonedMesh.traverse((child) => {
       if (child instanceof THREE.Mesh) {
@@ -53,10 +57,28 @@ export function useCharacterMaterials(clonedMesh: Object3D | null) {
           child.material = bodyMat;
         } else if (!child.name.includes('Person')) {
           child.material = detailMat;
+        } else {
+          child.visible = false;
         }
       }
     });
-  }, [clonedMesh, bodyTex, detailTex]);
+
+    // Update refs to track current state
+    materialsAssignedRef.current = true;
+    lastBodyTexMapRef.current = bodyTex.map;
+    lastDetailTexMapRef.current = detailTex.map;
+    lastHeightmapRef.current = heightmap || null;
+  }, [clonedMesh, bodyTex.map, bodyTex.aoMap, bodyTex.normalMap, bodyTex.metalnessMap, detailTex.map, detailTex.aoMap, detailTex.normalMap, detailTex.metalnessMap, heightmap]);
+
+  // Apply heightmap displacement if materials are created
+  // Note: This hook must be called unconditionally (React hooks rule)
+  // It will only apply shader if heightmap and materials are available
+  useCharacterHeightmap({
+    heightmap,
+    groupRef,
+    bodyMat: bodyMatRef.current || ({} as THREE.MeshStandardNodeMaterial),
+    detailMat: detailMatRef.current || ({} as THREE.MeshStandardNodeMaterial),
+  });
 
   return { bodyTex, detailTex };
 }

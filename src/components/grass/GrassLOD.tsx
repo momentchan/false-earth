@@ -8,7 +8,7 @@ import type { LODBufferConfig } from "./core/types";
 
 interface GrassLODProps {
   grassParams: any;
-  heightmapTexture?: THREE.StorageTexture;
+  heightmap?: THREE.StorageTexture;
   grassData: ReturnType<typeof createGrassData> | null;
   positions: ReturnType<typeof createPositions> | null;
   lodBuffer: LODBufferConfig;
@@ -17,7 +17,7 @@ interface GrassLODProps {
 
 export function GrassLOD({
   grassParams,
-  heightmapTexture,
+  heightmap,
   grassData,
   positions,
   lodBuffer,
@@ -46,7 +46,7 @@ export function GrassLOD({
       positions,
       lodBuffer.indices,
       uniforms,
-      heightmapTexture,
+      heightmap,
       lodDebugColor
     );
 
@@ -66,7 +66,7 @@ export function GrassLOD({
     positions,
     lodBuffer,
     uniforms,
-    heightmapTexture,
+    heightmap,
     scene.environment,
   ]);
 

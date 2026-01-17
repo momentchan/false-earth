@@ -10,7 +10,7 @@ import {
   useCharacterMovement,
 } from './hooks';
 
-export function Character({ position = [0, 0, 0], scale = 1 }: CharacterProps) {
+export function Character({ position = [0, 0, 0], scale = 1, heightmap }: CharacterProps) {
   const groupRef = useRef<Group>(null);
   
   // State management
@@ -20,7 +20,7 @@ export function Character({ position = [0, 0, 0], scale = 1 }: CharacterProps) {
   const { clonedMesh } = useCharacterMesh();
 
   // Load and assign materials
-  useCharacterMaterials(clonedMesh);
+  useCharacterMaterials(clonedMesh, heightmap, groupRef);
 
   // Setup animations
   const { actions } = useCharacterAnimations(groupRef);

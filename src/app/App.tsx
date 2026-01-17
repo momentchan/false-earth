@@ -13,7 +13,7 @@ import Effects from "../components/Effects";
 import { Character } from "../components/character";
 
 export default function App() {
-    const [heightmapTexture, setHeightmapTexture] = useState<THREE.StorageTexture | undefined>(undefined)
+    const [heightmap, setHeightmap] = useState<THREE.StorageTexture | undefined>(undefined)
     const [lightPosition, setLightPosition] = useState<THREE.Vector3 | undefined>(undefined)
     const [debugMode, setDebugMode] = useState(false) // Toggle for culling debug mode
 
@@ -59,9 +59,9 @@ export default function App() {
                 <GrassCullingDebug />
             ) : (
                 <>
-                    <Terrain onHeightmapChange={setHeightmapTexture} />
-                    <GrassWebGPU heightmapTexture={heightmapTexture} />
-                    {/* <Character position={[0, 0, 0]} scale={0.01} /> */}
+                    <Terrain onHeightmapChange={setHeightmap} />
+                    <GrassWebGPU heightmap={heightmap} />
+                    <Character position={[0, 0, 0]} scale={0.01} heightmap={heightmap} />
                 </>
             )}
             

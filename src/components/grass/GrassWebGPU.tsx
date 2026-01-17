@@ -4,7 +4,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { WebGPURenderer } from 'three/webgpu'
 import * as THREE from 'three/webgpu'
 import { storage, uniform, vec2, vec3, vec4 } from 'three/tsl'
-import { DEFAULT_BLADES_PER_AXIS, DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS, DEFAULT_LOD_SEGMENTS_CONFIG, drawIndirectStructure } from './core/constants'
+import { DEFAULT_BLADES_PER_AXIS, DEFAULT_GRASS_AREA_SIZE, DEFAULT_LOD_SEGMENTS_CONFIG, drawIndirectStructure } from './core/constants'
+import { useGridSnapping } from '../terrain/useGridSnapping'
 import { createGrassControls } from './core/grassControls'
 import { createPositions, createGrassData, createVisibleIndicesBuffer, createBladeGeometry } from './core/grassGeometry'
 import { createGrassCompute, createResetDrawBufferCompute } from './core/grassCompute'
@@ -12,7 +13,7 @@ import { updateComputeUniforms, updateMaterialUniforms } from './core/uniforms'
 import { GrassLOD } from './GrassLOD'
 import type { GrassProps, LODBufferConfig } from './core/types'
 
-export default function GrassWebGPU({ heightmapTexture, cullCamera }: GrassProps = {} as GrassProps) {
+export default function GrassWebGPU({ heightmap, cullCamera }: GrassProps = {} as GrassProps) {
   const { gl, camera: defaultCamera } = useThree()
   
   // Use cullCamera if provided, otherwise use default render camera
@@ -23,8 +24,6 @@ export default function GrassWebGPU({ heightmapTexture, cullCamera }: GrassProps
   // Use default constants for size parameters (not exposed in controls)
   const bladesPerAxis = DEFAULT_BLADES_PER_AXIS
   const grassAreaSize = DEFAULT_GRASS_AREA_SIZE
-  const gridDivisions = DEFAULT_GRID_DIVISIONS
-  const gridCellSize = grassAreaSize / gridDivisions
 
   const grassComputeRef = useRef<any>(null)
   const resetComputeRef = useRef<any>(null)
@@ -35,9 +34,17 @@ export default function GrassWebGPU({ heightmapTexture, cullCamera }: GrassProps
   const positionsRef = useRef<ReturnType<typeof createPositions> | null>(null)
   const [lodBuffers, setLodBuffers] = useState<LODBufferConfig[]>([])
 
-  // Track current grid cell to detect when player enters a new square
-  const currentGridCellX = useRef<number>(0)
-  const currentGridCellZ = useRef<number>(0)
+  // Use centralized grid snapping hook
+  const { gridCellSize } = useGridSnapping({
+    camera: cameraToUse,
+    grassAreaSize,
+    onSnap: ({ snappedX, snappedZ }) => {
+      if (!groupRef.current) return;
+
+      groupRef.current.position.set(snappedX, 0, snappedZ)
+      groupRef.current.updateMatrixWorld(true)
+    },
+  })
 
   const materialUniforms = useMemo(() => {
     const baseColorValue = new THREE.Color("#000000");
@@ -174,23 +181,8 @@ export default function GrassWebGPU({ heightmapTexture, cullCamera }: GrassProps
     computeUniforms.uTime.value = elapsedTime
     materialUniforms.uTime.value = elapsedTime
 
-    // Infinite Grass Position Update
+      // Update uniforms with current group position (snapping is handled by useGridSnapping hook)
     if (groupRef.current) {
-      // Use cullCamera position for snapping (follows player camera, not god view)
-      const currentCellX = Math.floor(cameraToUse.position.x / gridCellSize)
-      const currentCellZ = Math.floor(cameraToUse.position.z / gridCellSize)
-
-      if (currentCellX !== currentGridCellX.current || currentCellZ !== currentGridCellZ.current) {
-        const snappedX = currentCellX * gridCellSize
-        const snappedZ = currentCellZ * gridCellSize
-
-        groupRef.current.position.set(snappedX, 0, snappedZ)
-        groupRef.current.updateMatrixWorld(true)
-
-        currentGridCellX.current = currentCellX
-        currentGridCellZ.current = currentCellZ
-      }
-
       computeUniforms.uGroupOffset.value.setFromMatrixPosition(groupRef.current.matrixWorld)
       computeUniforms.uGridCellSize.value = gridCellSize
       
@@ -217,7 +209,7 @@ export default function GrassWebGPU({ heightmapTexture, cullCamera }: GrassProps
         <GrassLOD
           key={`lod-${lodBuffer.segments}-${lodBuffer.minDistance}-${lodBuffer.maxDistance}`}
           grassParams={grassParams}
-          heightmapTexture={heightmapTexture}
+          heightmap={heightmap}
           grassData={grassDataRef.current}
           positions={positionsRef.current}
           lodBuffer={lodBuffer}

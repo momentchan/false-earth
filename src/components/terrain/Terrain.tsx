@@ -17,11 +17,12 @@ import {
     instanceIndex,
     uvec2,
 } from 'three/tsl'
-import { DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS, DEFAULT_BLADES_PER_AXIS } from '../grass/core/constants'
+import { DEFAULT_GRASS_AREA_SIZE } from '../grass/core/constants'
 import {
     getTerrainHeight,
     getTerrainNormal,
 } from './terrainHelpers'
+import { useGridSnapping } from './useGridSnapping'
 
 
 export function Terrain({
@@ -29,7 +30,7 @@ export function Terrain({
     grassAreaSize = DEFAULT_GRASS_AREA_SIZE,
     cullCamera
 }: {
-    onHeightmapChange?: (heightmapTexture: THREE.StorageTexture) => void
+    onHeightmapChange?: (heightmap: THREE.StorageTexture) => void
     grassAreaSize?: number
     cullCamera?: THREE.PerspectiveCamera
 }) {
@@ -39,19 +40,8 @@ export function Terrain({
     const meshRef = useRef<THREE.Mesh>(null)
     const computeRef = useRef<any>(null)
     
-    const gridDivisions = DEFAULT_GRID_DIVISIONS
-    const bladesPerAxis = DEFAULT_BLADES_PER_AXIS
-    
-    const bladeSpacing = grassAreaSize / bladesPerAxis
-    
-    const rawGridCellSize = grassAreaSize / gridDivisions
-    
-    const gridCellSize = Math.round(rawGridCellSize / bladeSpacing) * bladeSpacing
-    
     const heightmapResolution = 1024
     
-    const currentGridCellX = useRef<number | null>(null)
-    const currentGridCellZ = useRef<number | null>(null)
     const needsRecompute = useRef<boolean>(true)
     
     const terrainParams = useControls('Terrain', {
@@ -62,7 +52,7 @@ export function Terrain({
     }, { collapsed: true })
 
     // Create storage texture for heightmap
-    const heightmapTexture = useMemo(() => {
+    const heightmap = useMemo(() => {
         const tex = new THREE.StorageTexture(heightmapResolution, heightmapResolution)
         // Use LinearFilter for smoother vertex sampling, reducing aliasing
         tex.magFilter = THREE.LinearFilter
@@ -92,12 +82,12 @@ export function Terrain({
         }
     }, [grassAreaSize])
 
-    // Expose heightmap texture to parent
+    // Expose heightmap texture to parent - use useLayoutEffect for synchronous update
     useEffect(() => {
-        if (onHeightmapChange) {
-            onHeightmapChange(heightmapTexture)
+        if (onHeightmapChange && heightmap) {
+            onHeightmapChange(heightmap)
         }
-    }, [heightmapTexture, onHeightmapChange])
+    }, [heightmap, onHeightmapChange])
 
     // Create compute shader for heightmap generation
     useEffect(() => {
@@ -145,13 +135,13 @@ export function Terrain({
             const normalA = normal.z.mul(float(0.5)).add(float(0.5))
 
             // Store height in R channel, normal in GBA channels
-            textureStore(heightmapTexture, indexUV, vec4(h, normalG, normalB, normalA)).toWriteOnly()
+            textureStore(heightmap, indexUV, vec4(h, normalG, normalB, normalA)).toWriteOnly()
         })
 
         const computeNode = computeFn().compute(heightmapResolution * heightmapResolution)
         computeRef.current = computeNode
         needsRecompute.current = true
-    }, [heightmapTexture, computeUniforms, grassAreaSize])
+    }, [heightmap, computeUniforms, grassAreaSize])
 
     // Create material with texture sampling
     const material = useMemo(() => {
@@ -164,7 +154,7 @@ export function Terrain({
             const uvCoord = uv()
             
             // Sample height from texture
-            const heightmapSample = texture(heightmapTexture, uvCoord)
+            const heightmapSample = texture(heightmap, uvCoord)
             const h = heightmapSample.r
             
             const displacedPos = vec3(localPos.x, localPos.y, localPos.z.add(h))
@@ -172,7 +162,7 @@ export function Terrain({
         })()
 
         return mat
-    }, [heightmapTexture, uniforms])
+    }, [heightmap, uniforms])
 
     // Update uniforms when terrainParams change
     useEffect(() => {
@@ -190,35 +180,24 @@ export function Terrain({
         needsRecompute.current = true
     }, [terrainParams, uniforms, computeUniforms])
 
-    // Follow camera position with grid snapping for infinite terrain
-    useFrame(() => {
-        if (!meshRef.current || !cameraToUse) return
-
-        const currentCellX = Math.floor(cameraToUse.position.x / gridCellSize)
-        const currentCellZ = Math.floor(cameraToUse.position.z / gridCellSize)
-
-        // Initialize or update if grid cell changed
-        if (
-            currentGridCellX.current === null || 
-            currentGridCellZ.current === null ||
-            currentCellX !== currentGridCellX.current || 
-            currentCellZ !== currentGridCellZ.current
-        ) {
-            const snappedX = currentCellX * gridCellSize
-            const snappedZ = currentCellZ * gridCellSize
+    // Use centralized grid snapping hook
+    useGridSnapping({
+        camera: cameraToUse,
+        grassAreaSize,
+        onSnap: ({ snappedX, snappedZ }) => {
+            if (!meshRef.current) return;
 
             meshRef.current.position.set(snappedX, 0, snappedZ)
             meshRef.current.updateMatrixWorld(true)
 
             // Update offset for compute shader
             computeUniforms.uOffset.value.set(snappedX, snappedZ)
-            
-            currentGridCellX.current = currentCellX
-            currentGridCellZ.current = currentCellZ
             needsRecompute.current = true
-        }
+        },
+    })
 
-        // Re-run compute shader when needed
+    // Re-run compute shader when needed
+    useFrame(() => {
         if (needsRecompute.current && computeRef.current) {
             const renderer = gl as unknown as WebGPURenderer
             renderer.compute(computeRef.current)

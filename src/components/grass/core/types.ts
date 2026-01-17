@@ -9,7 +9,7 @@ export interface TerrainParams {
 }
 
 export interface GrassProps {
-  heightmapTexture?: THREE.StorageTexture
+  heightmap?: THREE.StorageTexture
   cullCamera?: THREE.PerspectiveCamera // Camera used for culling calculation (separate from render camera)
 }
 

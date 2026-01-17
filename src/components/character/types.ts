@@ -1,8 +1,9 @@
-import * as THREE from 'three';
+import * as THREE from 'three/webgpu';
 
 export interface CharacterProps {
   position?: [number, number, number];
   scale?: number;
+  heightmap?: THREE.StorageTexture | THREE.DataTexture;
 }
 
 export interface CharacterState {
@@ -19,17 +20,3 @@ export interface CharacterState {
   rotateRight: boolean;
 }
 
-export interface CharacterTextures {
-  bodyTex: {
-    map: THREE.Texture;
-    aoMap: THREE.Texture;
-    normalMap: THREE.Texture;
-    metalnessMap: THREE.Texture;
-  };
-  detailTex: {
-    map: THREE.Texture;
-    aoMap: THREE.Texture;
-    normalMap: THREE.Texture;
-    metalnessMap: THREE.Texture;
-  };
-}
