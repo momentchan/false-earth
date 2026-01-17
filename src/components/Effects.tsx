@@ -7,15 +7,22 @@ import { pass, uniform } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 // @ts-ignore - DoFNode may not have TypeScript definitions yet
 import { dof } from "three/addons/tsl/display/DepthOfFieldNode.js";
+// @ts-ignore - SMAANode may not have TypeScript definitions yet
+import { smaa } from "three/addons/tsl/display/SMAANode.js";
 
 export default function Effects() {
     const postProcessingRef = useRef<THREE.PostProcessing | null>(null);
     const bloomPassRef = useRef<any>(null);
+    const smaaPassRef = useRef<any>(null);
     const { gl, scene, camera } = useThree();
 
     const [effectsParams] = useControls('Effects', () => ({
         enabled: { value: true }
     }));
+
+    const smaaParams = useControls('Effects.SMAA', {
+        enabled: { value: false, label: 'Enable SMAA' }
+    }, { collapsed: true });
 
     const bloomParams = useControls('Effects.Bloom', {
         enabled: { value: true, label: 'Enable Bloom' },
@@ -26,9 +33,9 @@ export default function Effects() {
 
     const dofParams = useControls('Effects.DoF', {
         enabled: { value: true, label: 'Enable Depth of Field' },
-        focusDistance: { value: 15.0, min: 0, max: 100, step: 0.1 },
-        focalLength: { value: 25.0, min: 0.01, max: 100, step: 0.1 },
-        bokehScale: { value: 1.1, min: 0.0, max: 10.0, step: 0.1 }
+        focusDistance: { value: 3, min: 0, max: 100, step: 0.1 },
+        focalLength: { value: 10.0, min: 0.01, max: 100, step: 0.1 },
+        bokehScale: { value: 5, min: 0.0, max: 10.0, step: 0.1 }
     }, { collapsed: true });
 
     const toneMappingParams = useControls('Effects.Tone Mapping', {
@@ -62,12 +69,8 @@ export default function Effects() {
         postProcessingRef.current = postProcessing;
 
         // Create scene pass (color and depth)
-        // Must pass scene and camera to get depth information
         const scenePass = pass(scene, camera);
-        
-        // Get color texture and depth texture
         const scenePassColor = scenePass.getTextureNode('output');
-        // Get view-space Z depth (required for DoF)
         const scenePassDepth = scenePass.getViewZNode();
 
         // Configure Tone Mapping on the renderer
@@ -114,6 +117,13 @@ export default function Effects() {
             finalNode = finalNode.add(bloomNode);
         }
 
+        // --- SMAA Effect (applied at the end) ---
+        if (smaaParams.enabled) {
+            const smaaNode = smaa(finalNode);
+            smaaPassRef.current = smaaNode;
+            finalNode = smaaNode;
+        }
+
         // Set output
         // @ts-ignore - finalNode is compatible with outputNode type
         postProcessing.outputNode = finalNode;
@@ -123,8 +133,9 @@ export default function Effects() {
                 postProcessingRef.current = null;
             }
             bloomPassRef.current = null;
+            smaaPassRef.current = null;
         };
-    }, [gl, scene, camera, effectsParams.enabled, bloomParams.enabled, dofParams.enabled, toneMappingParams.enabled]);
+    }, [gl, scene, camera, effectsParams.enabled, smaaParams.enabled, bloomParams.enabled, dofParams.enabled, toneMappingParams.enabled]);
 
     // Update Bloom Uniforms efficiently
     useEffect(() => {

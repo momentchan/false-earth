@@ -6,12 +6,11 @@ interface DebugModeToggleProps {
 
 /**
  * Simple component to toggle debug mode with keyboard
- * Press 'D' key to toggle culling debug mode
  */
 export function DebugModeToggle({ onToggle }: DebugModeToggleProps) {
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === 'd' || event.key === 'D') {
+      if (event.key === 'v' || event.key === 'V') {
         onToggle()
       }
     }

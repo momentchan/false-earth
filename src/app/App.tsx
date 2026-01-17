@@ -10,6 +10,7 @@ import GrassWebGPU from "../components/grass/GrassWebGPU";
 import { GrassCullingDebug } from "../components/debug/GrassCullingDebug";
 import { DebugModeToggle } from "../components/debug/DebugModeToggle";
 import Effects from "../components/Effects";
+import { Character } from "../components/Character";
 
 export default function App() {
     const [terrainUniforms, setTerrainUniforms] = useState<{ uTerrainAmp: any; uTerrainFreq: any; uTerrainSeed: any; uColor: any } | undefined>(undefined)
@@ -60,6 +61,7 @@ export default function App() {
                 <>
                     <Terrain onUniformsChange={setTerrainUniforms} />
                     <GrassWebGPU terrainUniforms={terrainUniforms} />
+                    <Character position={[0, 0, 0]} scale={0.01} />
                 </>
             )}
             
