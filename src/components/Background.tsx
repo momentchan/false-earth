@@ -1,25 +1,30 @@
+import { memo, useEffect } from 'react'
+import { useThree } from '@react-three/fiber'
 import { useControls } from 'leva'
-import { Sky } from './background/Sky'
-import { ProceduralSphere } from './background/ProceduralSphere'
+import { useTexture } from '@react-three/drei'
+import { texture, equirectUV } from 'three/tsl'
 import * as THREE from 'three'
 
-interface BackgroundProps {
-  sunPosition?: THREE.Vector3
-}
+export const Background = memo(function Background() {
+  const { scene } = useThree()
 
-export function Background({ sunPosition }: BackgroundProps = {} as BackgroundProps) {
-  const bgControl = useControls('Background', {
-    type: { value: 'procedural', options: ['procedural', 'sky', 'none'] },
+  const starmapControls = useControls('Background', {
+    backgroundIntensity: { value: 0.1, min: 0, max: 1, step: 0.01 },
+    useTexture: { value: true }
   }, { collapsed: true })
 
-  if (bgControl.type === 'sky') {
-    return <Sky sunPosition={sunPosition} />
-  }
+  const starmapTexture = useTexture('/textures/starmap_2020_4k.png')
+  starmapTexture.mapping = THREE.EquirectangularReflectionMapping
+  starmapTexture.colorSpace = THREE.SRGBColorSpace
 
-  if (bgControl.type === 'procedural') {
-    return <ProceduralSphere />
-  }
+  // Update background when controls or texture changes
+  useEffect(() => {
+    if (starmapControls.useTexture && starmapTexture) {
+      // Use the starmap texture with equirectangular mapping
+      scene.backgroundNode = texture(starmapTexture, equirectUV()).mul(starmapControls.backgroundIntensity)
+    }
+  }, [starmapControls.backgroundIntensity, starmapControls.useTexture, scene, starmapTexture])
 
   return null
-}
+})
 

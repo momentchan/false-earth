@@ -15,7 +15,7 @@ import { DEFAULT_GRASS_AREA_SIZE } from '../grass/core/constants'
 import {
     getTerrainHeight,
 } from './terrainHelpers'
-import { useGridSnapping } from './useGridSnapping'
+import { useGridSnapping } from '../useGridSnapping'
 import { TerrainUniforms } from './types'
 
 

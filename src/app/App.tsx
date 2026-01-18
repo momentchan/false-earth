@@ -12,6 +12,7 @@ import { DebugModeToggle } from "../components/debug/DebugModeToggle";
 import Effects from "../components/Effects";
 import { Character } from "../components/character";
 import { TerrainUniforms } from "../components/terrain/types";
+import { Background } from "../components/Background";
 
 export default function App() {
     const [terrainUniforms, setTerrainUniforms] = useState<TerrainUniforms | undefined>(undefined)
@@ -49,7 +50,7 @@ export default function App() {
             />
             <Environment preset="city" environmentIntensity={0.5} />
             <DirectionalLight onPositionChange={setLightPosition} />
-            {/* <Background sunPosition={lightPosition} /> */}
+            <Background />
 
             <Effects />
             

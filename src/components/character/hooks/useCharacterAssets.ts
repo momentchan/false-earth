@@ -80,7 +80,10 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms) {
       aoMap: detailTex.aoMap,
       normalMap: detailTex.normalMap,
       metalnessMap: detailTex.metalnessMap,
+      metalness: 0.8,
+      roughness: 0.3,
     });
+
     if (vertexNode) {
       detailMat.vertexNode = vertexNode;
     }
@@ -88,6 +91,7 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms) {
     // Assign materials based on mesh names
     clonedScene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
+        child.frustumCulled = false;
         if (BODY_MESH_NAMES.includes(child.name)) {
           child.material = bodyMat;
         } else if (!child.name.includes('Person')) {
