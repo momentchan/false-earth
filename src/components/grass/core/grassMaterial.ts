@@ -35,6 +35,7 @@ import {
   mx_noise_float,
   remapClamp,
   materialRoughness,
+  texture,
 } from "three/tsl";
 import {
   getTerrainHeight,
@@ -51,6 +52,7 @@ import {
   applySlopeAlignment,
   applyViewDependentTilt,
 } from "./shaderHelpers";
+import { DEFAULT_GRASS_AREA_SIZE } from "./constants";
 
 /**
  * Creates a grass material with vertex shader that scales blade geometry
@@ -62,7 +64,8 @@ export function createGrassMaterial(
   visibleIndicesBuffer: ReturnType<typeof instancedArray>,
   uniforms: Record<string, any>,
   terrainUniforms?: TerrainUniforms,
-  lodDebugColor?: THREE.Color // LOD debug color for visualization
+  lodDebugColor?: THREE.Color, // LOD debug color for visualization
+  trailTexture?: THREE.StorageTexture | null // Character trail texture for flattening
 ) {
   // Define varyings for passing data from vertex to fragment
   const vGeoNormal = varying(vec3(0.0));
@@ -96,7 +99,7 @@ export function createGrassMaterial(
   // Solution: Calculate local position = WorldPos - GroupOffset
   // Result: ModelMatrix (+GroupOffset) × positionNode (-GroupOffset) = correct continuous WorldPos
   const uGroupOffset = uniforms.uGroupOffset ?? uniform(new THREE.Vector3(0, 0, 0));
-  
+
   material.positionNode = Fn(() => {
     const trueIndex = visibleIndicesBuffer.element(instanceIndex);
     const instanceWorldPos = positions.element(trueIndex);
@@ -386,6 +389,12 @@ export function createGrassMaterial(
 
   // Uncomment to enable LOD debug coloring
   // material.fragmentNode = Fn(() => {
+
+  //   const uvCoords = vec2(vWorldPos.x, vWorldPos.z).div(float(DEFAULT_GRASS_AREA_SIZE)).add(float(0.5));
+  //   uvCoords.y =  float(1.0).sub(uvCoords.y);
+  //   const trailColor = trailTexture ? texture(trailTexture, uvCoords) : vec4(0.0, 0.0, 0.0, 1.0);
+
+  //   return trailColor;
   //   const trueIndex = visibleIndicesBuffer.element(instanceIndex);
 
   //   const data = grassData.element(trueIndex);

@@ -18,6 +18,7 @@ export default function App() {
     const [terrainUniforms, setTerrainUniforms] = useState<TerrainUniforms | undefined>(undefined)
     const [lightPosition, setLightPosition] = useState<THREE.Vector3 | undefined>(undefined)
     const [debugMode, setDebugMode] = useState(false) // Toggle for culling debug mode
+    const [trailTexture, setTrailTexture] = useState<THREE.StorageTexture | null>(null)
 
     return <>
         <LevaWrapper collapsed={true} />
@@ -62,8 +63,8 @@ export default function App() {
             ) : (
                 <>
                     <Terrain onUniformsChange={setTerrainUniforms} />
-                    <GrassWebGPU terrainUniforms={terrainUniforms} />
-                    <Character position={[0, 0, 0]} scale={0.01} terrainUniforms={terrainUniforms} />
+                    <GrassWebGPU terrainUniforms={terrainUniforms} trailTexture={trailTexture} />
+                    <Character position={[0, 0, 0]} scale={0.01} terrainUniforms={terrainUniforms} onTrailTextureChange={setTrailTexture} />
                 </>
             )}
             

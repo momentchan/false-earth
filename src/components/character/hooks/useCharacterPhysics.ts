@@ -7,8 +7,7 @@ import { Group, Object3D, AnimationClip } from 'three';
 export function useCharacterPhysics(
   groupRef: MutableRefObject<Group | null>,
   scene: Object3D | null,
-  animations: AnimationClip[],
-  uCharacterWorldPos: any // TSL Uniform
+  animations: AnimationClip[]
 ) {
   // 1. Animation System - bind to scene (contains skeleton), not parent group
   const sceneRef = useRef<Object3D | null>(null);
@@ -79,13 +78,6 @@ export function useCharacterPhysics(
     if (Math.abs(s.speed) > 0.01) {
       groupRef.current.translateZ(s.speed * delta);
     }
-
-    // --- Update TSL Uniform (Sync visual height) ---
-    // We update the uniform value so the vertex shader knows where to sample height
-    groupRef.current.updateMatrixWorld(true);
-    const groupWorldPos = new THREE.Vector3();
-    groupWorldPos.setFromMatrixPosition(groupRef.current.matrixWorld);
-    uCharacterWorldPos.value.set(groupWorldPos.x, groupWorldPos.y, groupWorldPos.z);
 
     // --- Animation Blending ---
     const speedFactor = Math.min(s.speed / s.maxSpeed, 1);

@@ -14,6 +14,7 @@ interface GrassLODProps {
   positions: ReturnType<typeof createPositions> | null;
   lodBuffer: LODBufferConfig;
   uniforms: Record<string, any>;
+  trailTexture?: THREE.StorageTexture | null;
 }
 
 export function GrassLOD({
@@ -23,7 +24,9 @@ export function GrassLOD({
   positions,
   lodBuffer,
   uniforms,
+  trailTexture,
 }: GrassLODProps) {
+
   const bladesPerAxis = DEFAULT_BLADES_PER_AXIS;
   const { scene } = useThree();
 
@@ -48,7 +51,8 @@ export function GrassLOD({
       lodBuffer.indices,
       uniforms,
       terrainUniforms,
-      lodDebugColor
+      lodDebugColor,
+      trailTexture
     );
 
     // Get environment map from scene if available

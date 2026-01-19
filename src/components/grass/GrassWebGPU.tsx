@@ -13,7 +13,7 @@ import { updateComputeUniforms, updateMaterialUniforms } from './core/uniforms'
 import { GrassLOD } from './GrassLOD'
 import type { GrassProps, LODBufferConfig } from './core/types'
 
-export default function GrassWebGPU({ terrainUniforms, cullCamera }: GrassProps = {} as GrassProps) {
+export default function GrassWebGPU({ terrainUniforms, cullCamera, trailTexture }: GrassProps = {} as GrassProps) {
   const { gl, camera: defaultCamera } = useThree()
   
   // Use cullCamera if provided, otherwise use default render camera
@@ -73,6 +73,7 @@ export default function GrassWebGPU({ terrainUniforms, cullCamera }: GrassProps 
       uTipThin: uniform(0.9),
       uThicknessStrength: uniform(0.10),
       uGroupOffset: uniform(new THREE.Vector3(0, 0, 0)), // For lighting coordinate system correction
+      uTrailTexture: trailTexture ? uniform(trailTexture) : null, // Character trail texture
     };
   }, []);
 
@@ -214,6 +215,7 @@ export default function GrassWebGPU({ terrainUniforms, cullCamera }: GrassProps 
           positions={positionsRef.current}
           lodBuffer={lodBuffer}
           uniforms={materialUniforms}
+          trailTexture={trailTexture}
         />
       ))}
     </group>
