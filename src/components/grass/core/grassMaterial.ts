@@ -36,6 +36,9 @@ import {
   remapClamp,
   materialRoughness,
   texture,
+  distance,
+  step,
+  atan,
 } from "three/tsl";
 import {
   getTerrainHeight,
@@ -51,6 +54,7 @@ import {
   applyVertexSway,
   applySlopeAlignment,
   applyViewDependentTilt,
+  applyCharacterPush,
 } from "./shaderHelpers";
 import { DEFAULT_GRASS_AREA_SIZE } from "./constants";
 
@@ -65,7 +69,6 @@ export function createGrassMaterial(
   uniforms: Record<string, any>,
   terrainUniforms?: TerrainUniforms,
   lodDebugColor?: THREE.Color, // LOD debug color for visualization
-  trailTexture?: THREE.StorageTexture | null // Character trail texture for flattening
 ) {
   // Define varyings for passing data from vertex to fragment
   const vGeoNormal = varying(vec3(0.0));
@@ -94,11 +97,8 @@ export function createGrassMaterial(
       : vec3(1.0, 1.0, 1.0) // Default white if not provided
   );
 
-  // FIX: Correct PBR lighting coordinate system when Group snaps
-  // Problem: When Group snaps, ModelMatrix jumps, causing lighting to use wrong world position
-  // Solution: Calculate local position = WorldPos - GroupOffset
-  // Result: ModelMatrix (+GroupOffset) × positionNode (-GroupOffset) = correct continuous WorldPos
   const uGroupOffset = uniforms.uGroupOffset ?? uniform(new THREE.Vector3(0, 0, 0));
+  const uCharacterWorldPos = uniforms.uCharacterWorldPos ?? uniform(new THREE.Vector3(0, 0, 0));
 
   material.positionNode = Fn(() => {
     const trueIndex = visibleIndicesBuffer.element(instanceIndex);
@@ -201,11 +201,22 @@ export function createGrassMaterial(
       .add(uniforms.uBaseWidth)
       .mul(pow(float(1.0).sub(t), uniforms.uTipThin));
 
+
     // Use spine with sway instead of original spine
     const lposBase = spineWithSway.add(side.mul(width).mul(widthFactor).mul(s));
 
     const lposXZ = mx_rotate2d(vec2(lposBase.x, lposBase.z), facingAngle);
     let lpos = vec3(lposXZ.x, lposBase.y, lposXZ.y);
+
+    lpos = applyCharacterPush(
+      lpos,
+      worldXZ,
+      uCharacterWorldPos,
+      t,
+      uniforms.uCharacterPushRadius,
+      uniforms.uCharacterPushAmount,
+      uniforms.uCharacterFlattenAmount
+    );
 
     const normalXZ = mx_rotate2d(vec2(normal.x, normal.z), facingAngle);
     let normalRotated = vec3(normalXZ.x, normal.y, normalXZ.y);
@@ -221,27 +232,21 @@ export function createGrassMaterial(
     // Slope Alignment: Align the local "Up" vector (0,1,0) to the "Terrain Normal"
     applySlopeAlignment(tn, lpos, tangentRotated, sideRotated, normalRotated);
 
-    // instancePos is already in world space
-    // lpos is local space blade geometry - add it directly to world position
-    // (parent group only has translation, no rotation/scale, so local-space lpos can be added directly)
     const worldPos = vec3(
       instancePos.x.add(lpos.x),
       instancePos.y.add(lpos.y).add(th),
       instancePos.z.add(lpos.z)
     );
 
-    // Apply view-dependent tilt for thickness effect
-    // positionFinal is in local space (object space), but we're working in world space now
-    // We need to apply the tilt delta in world space directly
     const positionFinal = applyViewDependentTilt(
-      lpos, // Use lpos as object space position (local blade geometry)
-      worldPos, // Use worldPos as world space position
+      lpos,
+      worldPos,
       sideRotated,
       normalRotated,
       uvCoords,
       t,
       uniforms.uThicknessStrength,
-      modelWorldMatrix, // Still needed for transforming side vector
+      modelWorldMatrix,
       cameraPosition
     );
 
@@ -390,11 +395,14 @@ export function createGrassMaterial(
   // Uncomment to enable LOD debug coloring
   // material.fragmentNode = Fn(() => {
 
-  //   const uvCoords = vec2(vWorldPos.x, vWorldPos.z).div(float(DEFAULT_GRASS_AREA_SIZE)).add(float(0.5));
-  //   uvCoords.y =  float(1.0).sub(uvCoords.y);
-  //   const trailColor = trailTexture ? texture(trailTexture, uvCoords) : vec4(0.0, 0.0, 0.0, 1.0);
+  //   const uCharacterWorldPos = uniforms.uCharacterWorldPos ?? uniform(new THREE.Vector3(0, 0, 0));
 
-  //   return trailColor;
+  //   const diff = vec2(vWorldPos.x, vWorldPos.z).sub(vec2(uCharacterWorldPos.x, uCharacterWorldPos.z))
+  //   const diffLength = length(diff)
+  //   const diffLengthFade = smoothstep(float(1.0), float(0), diffLength);
+  //   const trailColor = diffLengthFade;
+
+  //   return vec4(trailColor, 0, 0, 1.0);
   //   const trueIndex = visibleIndicesBuffer.element(instanceIndex);
 
   //   const data = grassData.element(trueIndex);

@@ -86,5 +86,10 @@ export function updateMaterialUniforms(
     params.noiseRemapMin,
     params.noiseRemapMax
   );
+
+  // Character push uniforms
+  uniforms.uCharacterPushRadius.value = params.pushRadius ?? 0.8;
+  uniforms.uCharacterPushAmount.value = params.pushAmount ?? 0.3;
+  uniforms.uCharacterFlattenAmount.value = params.flattenAmount ?? 0.5;
 }
 

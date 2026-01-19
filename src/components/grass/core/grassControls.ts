@@ -65,6 +65,11 @@ export function createGrassControls() {
         windDistanceStart: { value: 50, min: 0, max: 100, step: 1 },
         windDistanceEnd: { value: 100, min: 0, max: 200, step: 1 },
       }, { collapsed: true }),
+      Interaction: folder({
+        pushRadius: { value: 0.7, min: 0.1, max: 2.0, step: 0.01 },
+        pushAmount: { value: 0.4, min: 0.0, max: 1.0, step: 0.01 },
+        flattenAmount: { value: 0.05, min: 0.0, max: 1.0, step: 0.01 },
+      }, { collapsed: true }),
     }, { collapsed: true }),
 
     Performance: folder({

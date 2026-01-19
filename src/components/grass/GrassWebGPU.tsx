@@ -13,7 +13,7 @@ import { updateComputeUniforms, updateMaterialUniforms } from './core/uniforms'
 import { GrassLOD } from './GrassLOD'
 import type { GrassProps, LODBufferConfig } from './core/types'
 
-export default function GrassWebGPU({ terrainUniforms, cullCamera, trailTexture }: GrassProps = {} as GrassProps) {
+export default function GrassWebGPU({ terrainUniforms, cullCamera, characterWorldPosRef }: GrassProps = {} as GrassProps) {
   const { gl, camera: defaultCamera } = useThree()
   
   // Use cullCamera if provided, otherwise use default render camera
@@ -72,8 +72,11 @@ export default function GrassWebGPU({ terrainUniforms, cullCamera, trailTexture 
       uBaseWidth: uniform(0.35),
       uTipThin: uniform(0.9),
       uThicknessStrength: uniform(0.10),
-      uGroupOffset: uniform(new THREE.Vector3(0, 0, 0)), // For lighting coordinate system correction
-      uTrailTexture: trailTexture ? uniform(trailTexture) : null, // Character trail texture
+      uGroupOffset: uniform(new THREE.Vector3(0, 0, 0)),
+      uCharacterWorldPos: uniform(new THREE.Vector3(0, 0, 0)),
+      uCharacterPushRadius: uniform(0.8),
+      uCharacterPushAmount: uniform(0.3),
+      uCharacterFlattenAmount: uniform(0.5)
     };
   }, []);
 
@@ -182,6 +185,11 @@ export default function GrassWebGPU({ terrainUniforms, cullCamera, trailTexture 
     computeUniforms.uTime.value = elapsedTime
     materialUniforms.uTime.value = elapsedTime
 
+    // Update character world position from ref
+    if (characterWorldPosRef) {
+      materialUniforms.uCharacterWorldPos.value.copy(characterWorldPosRef.current);
+    }
+
       // Update uniforms with current group position (snapping is handled by useGridSnapping hook)
     if (groupRef.current) {
       computeUniforms.uGroupOffset.value.setFromMatrixPosition(groupRef.current.matrixWorld)
@@ -215,7 +223,6 @@ export default function GrassWebGPU({ terrainUniforms, cullCamera, trailTexture 
           positions={positionsRef.current}
           lodBuffer={lodBuffer}
           uniforms={materialUniforms}
-          trailTexture={trailTexture}
         />
       ))}
     </group>

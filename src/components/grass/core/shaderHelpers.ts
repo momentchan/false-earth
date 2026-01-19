@@ -414,3 +414,53 @@ export const sampleTerrainHeightAndNormal = (
   return { th, tn };
 };
 
+/**
+ * Applies character push effect to grass blade position
+ * Pushes blades away from character and flattens them, with more effect at the tip
+ * @param lpos - Local position of the blade vertex (vec3)
+ * @param worldXZ - World XZ position of the blade base (vec2)
+ * @param uCharacterWorldPos - Character world position uniform (vec3)
+ * @param t - Position along blade (0 = base, 1 = tip) (float)
+ * @param pushRadius - Radius of push effect (float, default 0.8)
+ * @param pushAmount - Maximum push distance (float, default 0.3)
+ * @param flattenAmount - Maximum flatten factor (float, default 0.5)
+ * @returns Modified local position (vec3)
+ */
+export const applyCharacterPush = (
+  lpos: any,
+  worldXZ: any,
+  uCharacterWorldPos: any,
+  t: any,
+  pushRadius: any = float(0.8),
+  pushAmount: any = float(0.3),
+  flattenAmount: any = float(0.5)
+) => {
+  // Calculate distance from character to blade
+  const diff = worldXZ.sub(vec2(uCharacterWorldPos.x, uCharacterWorldPos.z));
+  const diffLength = length(diff);
+  const pushStrength = smoothstep(pushRadius, float(0), diffLength); // 1 near character, 0 far
+  
+  // Normalize direction vector (from character to blade) for pushing away
+  const pushDirection = normalize(diff);
+  
+  // Push blade away from character (more at the tip, less at the base)
+  const heightWeight = pow(t, float(2.0)); // near base (t~0) minimal, tip (t~1) maximal
+  const pushOffset = vec3(
+    pushDirection.x.mul(pushAmount),
+    float(0.0),
+    pushDirection.y.mul(pushAmount)
+  ).mul(heightWeight).mul(pushStrength);
+  
+  let resultPos = lpos.add(pushOffset);
+  
+  // Flatten blade height near character (reduce Y component)
+  const flattenFactor = pushStrength.mul(flattenAmount);
+  resultPos = vec3(
+    resultPos.x,
+    resultPos.y.mul(oneMinus(flattenFactor)),
+    resultPos.z
+  );
+  
+  return resultPos;
+};
+

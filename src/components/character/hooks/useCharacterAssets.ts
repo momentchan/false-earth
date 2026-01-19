@@ -4,13 +4,12 @@ import { useTexture } from '@react-three/drei';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import * as THREE from 'three/webgpu';
-import { Fn, vec3, vec4, float, positionLocal, modelWorldMatrix, cameraViewMatrix, cameraProjectionMatrix, uniform } from 'three/tsl';
+import { Fn, vec3, vec4, float, positionLocal, modelWorldMatrix, cameraViewMatrix, cameraProjectionMatrix } from 'three/tsl';
 import { getTerrainHeight } from '../../terrain/terrainHelpers';
 import { TerrainUniforms } from '../../terrain/types';
 import { BODY_MESH_NAMES } from '../constants';
 
-export function useCharacterAssets(terrainUniforms?: TerrainUniforms) {
-  // 1. Load all assets
+export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?: any) {
   const mesh = useLoader(FBXLoader, '/models/Astronaut_Pilot_Mesh.FBX');
   const idleAnim = useLoader(FBXLoader, '/models/Idle.fbx');
   const walkAnim = useLoader(FBXLoader, '/models/Walking.fbx');
@@ -31,11 +30,6 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms) {
   });
   detailTex.map.colorSpace = THREE.SRGBColorSpace;
 
-  // 2. Uniform for Character World Position (Updated in Physics hook)
-  // We create it here so we can bake it into the material
-  const uCharacterWorldPos = useMemo(() => uniform(new THREE.Vector3(0, 0, 0)), []);
-
-  // 3. Prepare Scene & Materials with Terrain TSL baked in
   const { scene, animations } = useMemo(() => {
     if (!mesh || !bodyTex.map || !detailTex.map) return { scene: null, animations: [] };
 
@@ -56,7 +50,7 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms) {
         
         // Calculate Terrain Height at the GROUP'S position (not vertex position)
         // This ensures the whole character moves up/down as one unit
-        const th = terrainHeightFn(uCharacterWorldPos.xz);
+        const th = terrainHeightFn(uWorldPos.xz);
         
         const displacedPos = vec3(worldPos.x, worldPos.y.add(th), worldPos.z);
         const viewPos = cameraViewMatrix.mul(vec4(displacedPos, float(1.0)));
@@ -116,7 +110,7 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms) {
     }
 
     return { scene: clonedScene, animations: anims };
-  }, [mesh, idleAnim, walkAnim, bodyTex.map, bodyTex.aoMap, bodyTex.normalMap, bodyTex.metalnessMap, detailTex.map, detailTex.aoMap, detailTex.normalMap, detailTex.metalnessMap, terrainUniforms, uCharacterWorldPos]);
+  }, [mesh, idleAnim, walkAnim, bodyTex.map, bodyTex.aoMap, bodyTex.normalMap, bodyTex.metalnessMap, detailTex.map, detailTex.aoMap, detailTex.normalMap, detailTex.metalnessMap, terrainUniforms, uWorldPos]);
 
-  return { scene, animations, uCharacterWorldPos };
+  return { scene, animations };
 }
