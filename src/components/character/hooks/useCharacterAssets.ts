@@ -10,7 +10,7 @@ import { TerrainUniforms } from '../../terrain/types';
 import { BODY_MESH_NAMES } from '../constants';
 
 export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?: any) {
-  const mesh = useLoader(FBXLoader, '/models/Astronaut_Pilot_Mesh.FBX');
+  const mesh = useLoader(FBXLoader, '/models/Astronaut.fbx');
   const idleAnim = useLoader(FBXLoader, '/models/Idle.fbx');
   const walkAnim = useLoader(FBXLoader, '/models/Walking.fbx');
 
