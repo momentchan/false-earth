@@ -1,7 +1,7 @@
 import { CameraControls, Environment } from "@react-three/drei";
 import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Terrain } from "../components/terrain/Terrain";
 import { DirectionalLight } from "../components/DirectionalLight";
 import * as THREE from 'three/webgpu'
@@ -19,6 +19,7 @@ export default function App() {
     const [lightPosition, setLightPosition] = useState<THREE.Vector3 | undefined>(undefined)
     const [debugMode, setDebugMode] = useState(false) // Toggle for culling debug mode
     const [trailTexture, setTrailTexture] = useState<THREE.StorageTexture | null>(null)
+    const characterWorldPosRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
 
     return <>
         <LevaWrapper collapsed={true} />
@@ -63,8 +64,8 @@ export default function App() {
             ) : (
                 <>
                     <Terrain onUniformsChange={setTerrainUniforms} />
-                    <GrassWebGPU terrainUniforms={terrainUniforms} trailTexture={trailTexture} />
-                    <Character position={[0, 0, 0]} scale={0.01} terrainUniforms={terrainUniforms} onTrailTextureChange={setTrailTexture} />
+                    <GrassWebGPU terrainUniforms={terrainUniforms} trailTexture={trailTexture} characterWorldPosRef={characterWorldPosRef} />
+                    <Character position={[0, 0, 0]} scale={0.01} terrainUniforms={terrainUniforms} onTrailTextureChange={setTrailTexture} characterWorldPosRef={characterWorldPosRef} />
                 </>
             )}
             

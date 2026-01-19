@@ -15,13 +15,16 @@ import {
   textureLoad,
   smoothstep,
   clamp,
+  length,
+  step,
 } from 'three/tsl';
 import { DEFAULT_GRASS_AREA_SIZE } from '../../grass/core/constants';
 
 const TRAIL_TEXTURE_SIZE = 512;
 
 export function useCharacterTrail(
-  uCharacterWorldPos: any, 
+  uWorldPos: any,
+  uVelocity?: any
 ) {
   const { gl } = useThree();
   const renderer = gl as unknown as WebGPURenderer;
@@ -78,12 +81,16 @@ export function useCharacterTrail(
         );
 
         const characterUV = vec2(
-          uCharacterWorldPos.x.div( float(DEFAULT_GRASS_AREA_SIZE)).add(float(0.5)),
-          float(1.0).sub(uCharacterWorldPos.z.div(float(DEFAULT_GRASS_AREA_SIZE)).add(float(0.5)))
+          uWorldPos.x.div( float(DEFAULT_GRASS_AREA_SIZE)).add(float(0.5)),
+          float(1.0).sub(uWorldPos.z.div(float(DEFAULT_GRASS_AREA_SIZE)).add(float(0.5)))
         );
         const dist = currentUV.distance(characterUV);
 
-        const draw = float(1.0).sub(smoothstep(float(0.0), uTrailRadius, dist));
+        // Calculate speed from velocity (magnitude of velocity vector)
+        const speed = uVelocity ? length(uVelocity) : float(0.0);
+        
+        const isMoving = step(float(0.0001), speed); // Returns 1.0 when speed > 0.0001, 0.0 otherwise
+        const draw = float(1.0).sub(smoothstep(float(0.0), uTrailRadius, dist)).mul(isMoving);
         nextColor = nextColor.add(draw);
 
         const r = clamp(nextColor.x, float(0.0), float(1.0));
@@ -101,7 +108,7 @@ export function useCharacterTrail(
       computeToPong: computeToPongFn().compute(TRAIL_TEXTURE_SIZE * TRAIL_TEXTURE_SIZE),
       computeToPing: computeToPingFn().compute(TRAIL_TEXTURE_SIZE * TRAIL_TEXTURE_SIZE),
     };
-  }, [pingTexture, pongTexture, uCharacterWorldPos, uFadeSpeed, uTrailRadius, TRAIL_TEXTURE_SIZE]);
+  }, [pingTexture, pongTexture, uWorldPos, uVelocity, uFadeSpeed, uTrailRadius, TRAIL_TEXTURE_SIZE]);
 
   // Update uniforms only when values change
   useEffect(() => {
@@ -111,7 +118,7 @@ export function useCharacterTrail(
 
   // Update trail each frame
   useFrame(() => {
-    if (!renderer || !uCharacterWorldPos?.value) return;
+    if (!renderer || !uWorldPos?.value) return;
 
     if (phaseRef.current) {
       renderer.compute(computeToPong);

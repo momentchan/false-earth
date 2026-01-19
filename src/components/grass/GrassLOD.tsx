@@ -24,7 +24,6 @@ export function GrassLOD({
   positions,
   lodBuffer,
   uniforms,
-  trailTexture,
 }: GrassLODProps) {
 
   const bladesPerAxis = DEFAULT_BLADES_PER_AXIS;
@@ -52,7 +51,6 @@ export function GrassLOD({
       uniforms,
       terrainUniforms,
       lodDebugColor,
-      trailTexture
     );
 
     // Get environment map from scene if available
