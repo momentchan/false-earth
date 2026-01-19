@@ -79,22 +79,29 @@ export function useCharacterPhysics(
       groupRef.current.translateZ(s.speed * delta);
     }
 
-    // --- Animation Blending ---
-    const speedFactor = Math.min(s.speed / s.maxSpeed, 1);
-    const targetIdleWeight = 1 - speedFactor;
-    const targetWalkWeight = speedFactor;
+    // --- Animation Blending Logic ---
     
-    s.idleWeight = THREE.MathUtils.lerp(
-      s.idleWeight,
-      targetIdleWeight,
-      s.animBlendLerpFactor
-    );
-    s.walkWeight = THREE.MathUtils.lerp(
-      s.walkWeight,
-      targetWalkWeight,
-      s.animBlendLerpFactor
-    );
+    // 1. Determine basic states
+    const isWalking = Math.abs(s.speed) > 0.1;
+    const isRotating = s.rotateLeft || s.rotateRight;
+    const isTurningInPlace = isRotating && !isWalking;
 
+    let targetIdle = 0;
+    let targetWalk = 0;
+
+    if (isWalking) {
+      targetWalk = 1;
+    } else if (isTurningInPlace) {
+      targetWalk = 0.7;
+      targetIdle = 0.3;
+    } else {
+      targetIdle = 1;
+    }
+
+    s.idleWeight = THREE.MathUtils.lerp(s.idleWeight, targetIdle, s.animBlendLerpFactor);
+    s.walkWeight = THREE.MathUtils.lerp(s.walkWeight, targetWalk, s.animBlendLerpFactor);
+
+    // 4. Apply weights
     actions['Idle']?.setEffectiveWeight(s.idleWeight);
     actions['Walk']?.setEffectiveWeight(s.walkWeight);
   });

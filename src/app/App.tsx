@@ -13,6 +13,7 @@ import Effects from "../components/Effects";
 import { Character } from "../components/character";
 import { TerrainUniforms } from "../components/terrain/types";
 import { Background } from "../components/Background";
+import { Stars } from "../components/Stars";
 
 export default function App() {
     const [terrainUniforms, setTerrainUniforms] = useState<TerrainUniforms | undefined>(undefined)
@@ -55,6 +56,8 @@ export default function App() {
             <Background />
 
             <Effects />
+
+            <Stars />
             
 
             {/* Toggle between normal mode and culling debug mode */}

@@ -4,7 +4,7 @@ import { useTexture } from '@react-three/drei';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import * as THREE from 'three/webgpu';
-import { Fn, vec3, vec4, float, positionLocal, modelWorldMatrix, cameraViewMatrix, cameraProjectionMatrix } from 'three/tsl';
+import { Fn, vec3, vec4, float, positionLocal, modelWorldMatrix, cameraViewMatrix, cameraProjectionMatrix, oneMinus, texture, uv } from 'three/tsl';
 import { getTerrainHeight } from '../../terrain/terrainHelpers';
 import { TerrainUniforms } from '../../terrain/types';
 import { BODY_MESH_NAMES } from '../constants';
@@ -64,7 +64,11 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?
       aoMap: bodyTex.aoMap,
       normalMap: bodyTex.normalMap,
       metalnessMap: bodyTex.metalnessMap,
+      metalness: 1,
     });
+    bodyMat.roughnessNode = Fn(() => {
+      return oneMinus(texture(bodyTex.metalnessMap, uv()));
+    })();
     if (vertexNode) {
       bodyMat.vertexNode = vertexNode;
     }
@@ -74,9 +78,12 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?
       aoMap: detailTex.aoMap,
       normalMap: detailTex.normalMap,
       metalnessMap: detailTex.metalnessMap,
-      metalness: 0.8,
-      roughness: 0.3,
+      metalness: 1,
     });
+
+    detailMat.roughnessNode = Fn(() => {
+      return oneMinus(texture(detailTex.metalnessMap, uv()));
+    })();
 
     if (vertexNode) {
       detailMat.vertexNode = vertexNode;
