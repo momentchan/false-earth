@@ -1,4 +1,4 @@
-import { useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useMemo, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group } from 'three';
 import * as THREE from 'three/webgpu';
@@ -6,6 +6,7 @@ import { uniform } from 'three/tsl';
 import { CharacterProps } from './types';
 import { useCharacterAssets } from './hooks/useCharacterAssets';
 import { useCharacterPhysics } from './hooks/useCharacterPhysics';
+import { useGameStore, CameraMode } from '../../store/gameStore';
 
 export const Character = forwardRef<Group, CharacterProps>(({ position = [0, 0, 0], scale = 1, terrainUniforms, onTrailTextureChange, characterWorldPosRef }, ref) => {
   const groupRef = useRef<Group>(null);
@@ -17,9 +18,23 @@ export const Character = forwardRef<Group, CharacterProps>(({ position = [0, 0, 
   const uWorldPos = useMemo(() => uniform(new THREE.Vector3(0, 0, 0)), []);
   const uVelocity = useMemo(() => uniform(new THREE.Vector3(0, 0, 0)), []);
 
-  const { scene, animations } = useCharacterAssets(terrainUniforms, uWorldPos);
+  const { scene, animations, helmetRefs } = useCharacterAssets(terrainUniforms, uWorldPos);
+  
+  // Get camera mode from store
+  const cameraMode = useGameStore((state) => state.cameraMode);
 
   useCharacterPhysics(groupRef, scene, animations);
+
+  useEffect(() => {
+    if (helmetRefs.current && helmetRefs.current.length > 0) {
+      const shouldBeVisible = cameraMode !== CameraMode.FPV;
+      helmetRefs.current.forEach((helmet) => {
+        if (helmet && helmet.visible !== shouldBeVisible) {
+          helmet.visible = shouldBeVisible;
+        }
+      });
+    }
+  }, [cameraMode, helmetRefs]);
 
   // const { trailTexture } = useCharacterTrail(uWorldPos, uVelocity);
 

@@ -7,15 +7,14 @@ import { pass, uniform } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { dof } from "three/addons/tsl/display/DepthOfFieldNode.js";
 import { smaa } from "three/addons/tsl/display/SMAANode.js";
-import { CameraMode } from "./camera/CameraViewControl";
+import { useGameStore, CameraMode } from "../store/gameStore";
 
-// Add props type to accept the character ref and camera mode
 type EffectsProps = {
     characterRef?: React.RefObject<THREE.Object3D | THREE.Group | null>;
-    cameraMode?: CameraMode;
 };
 
-export default function Effects({ characterRef, cameraMode = CameraMode.TPS }: EffectsProps) {
+export default function Effects({ characterRef }: EffectsProps) {
+    const cameraMode = useGameStore((state) => state.cameraMode);
     const postProcessingRef = useRef<THREE.PostProcessing | null>(null);
     const bloomPassRef = useRef<any>(null);
     const smaaPassRef = useRef<any>(null);

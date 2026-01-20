@@ -1,31 +1,22 @@
-import { useEffect, useRef, useState, MutableRefObject, useMemo } from 'react';
+import { useEffect, useRef, MutableRefObject, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { CameraControls } from '@react-three/drei';
 import { Group, Vector3, Quaternion, Bone, Euler, Object3D, MathUtils } from 'three';
 import { useControls } from 'leva';
-
-// Define three camera modes
-export enum CameraMode {
-  TPS = 0,
-  FREE = 1,
-  FPV = 2,
-}
+// Import Store
+import { useGameStore, CameraMode } from '../../store/gameStore';
 
 type Props = {
   characterRef: MutableRefObject<Group | null>;
   boneName?: string;
-  onModeChange?: (mode: CameraMode) => void;
 };
 
-export function CameraViewControl({ characterRef, boneName = 'head', onModeChange }: Props) {
+export function CameraViewControl({ characterRef, boneName = 'head' }: Props) {
   const controlsRef = useRef<CameraControls>(null);
-  const [mode, setMode] = useState<CameraMode>(CameraMode.TPS);
   const { gl, camera } = useThree();
 
-  // Notify parent when mode changes
-  useEffect(() => {
-    onModeChange?.(mode);
-  }, [mode, onModeChange]);
+  // Read mode directly from Store
+  const cameraMode = useGameStore((state) => state.cameraMode);
 
   const { vec3, quat, quatOffset, quatBone, quatLookForward, modelCorrectionQuat, dummyEuler, mouseQuat } = useMemo(() => ({
     vec3: new Vector3(),
@@ -53,30 +44,23 @@ export function CameraViewControl({ characterRef, boneName = 'head', onModeChang
     mouseRotationSmoothing: { value: 0.5, min: 0.01, max: 1, step: 0.01 },
   }, { collapsed: true });
 
-  // Input Handling (Mode Switching) ---
+  // Input Handling: Only handle view side effects (Pointer Lock)
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === 'c') setMode((m) => (m + 1) % 3);
-    };
-
-    if (mode === CameraMode.TPS) gl.domElement.requestPointerLock();
+    if (cameraMode === CameraMode.TPS) gl.domElement.requestPointerLock();
     else document.exitPointerLock();
-
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [mode, gl.domElement]);
+  }, [cameraMode, gl.domElement]);
 
   // Handle Mouse Look for TPS
   useEffect(() => {
-    if (mode !== CameraMode.TPS) return;
+    if (cameraMode !== CameraMode.TPS) return;
     const onMove = (e: MouseEvent) => controlsRef.current?.rotate(-e.movementX * 0.002, -e.movementY * 0.002, true);
     document.addEventListener('mousemove', onMove);
     return () => document.removeEventListener('mousemove', onMove);
-  }, [mode]);
+  }, [cameraMode]);
 
-  // Handle Mouse Look for FPV - map mouse position to angle ranges using NDC coordinates
+  // Handle Mouse Look for FPV
   useEffect(() => {
-    if (mode !== CameraMode.FPV) return;
+    if (cameraMode !== CameraMode.FPV) return;
 
     const onMove = (e: MouseEvent) => {
       const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -88,11 +72,11 @@ export function CameraViewControl({ characterRef, boneName = 'head', onModeChang
 
     window.addEventListener('mousemove', onMove);
     return () => window.removeEventListener('mousemove', onMove);
-  }, [mode]);
+  }, [cameraMode]);
 
   // Auto-position camera behind character when switching to TPS mode
   useEffect(() => {
-    if (mode === CameraMode.TPS && characterRef.current && controlsRef.current) {
+    if (cameraMode === CameraMode.TPS && characterRef.current && controlsRef.current) {
       const charPos = characterRef.current.position;
       controlsRef.current.setLookAt(
         charPos.x, charPos.y + 3, charPos.z - 4,
@@ -100,14 +84,14 @@ export function CameraViewControl({ characterRef, boneName = 'head', onModeChang
         true
       );
     }
-  }, [mode]); // Listen to mode changes
+  }, [cameraMode]);
 
 
   useFrame(() => {
     if (!characterRef.current) return;
 
     // === FPV MODE ===
-    if (mode === CameraMode.FPV) {
+    if (cameraMode === CameraMode.FPV) {
       if (!targetBone.current || !isBoneAttached(targetBone.current, characterRef.current)) {
         targetBone.current = findBone(characterRef.current, boneName);
       }
@@ -162,7 +146,7 @@ export function CameraViewControl({ characterRef, boneName = 'head', onModeChang
     }
 
     // === TPS MODE ===
-    if (mode === CameraMode.TPS && controlsRef.current) {
+    if (cameraMode === CameraMode.TPS && controlsRef.current) {
       const { x, y, z } = characterRef.current.position;
       controlsRef.current.moveTo(x, y + 1, z, true);
     }
@@ -172,7 +156,7 @@ export function CameraViewControl({ characterRef, boneName = 'head', onModeChang
     <CameraControls
       ref={controlsRef}
       makeDefault
-      enabled={mode !== CameraMode.FPV}
+      enabled={cameraMode !== CameraMode.FPV}
       minDistance={2}
       maxDistance={20}
       // minPolarAngle={Math.PI / 6}
@@ -194,7 +178,6 @@ function isBoneAttached(bone: Object3D, characterRoot: Object3D): boolean {
 function findBone(character: Group, name: string): Bone | undefined {
   const found = character.getObjectByName(name);
   if (found && found instanceof Bone) {
-    console.log('FPV Camera attached to:', found.name);
     return found;
   }
   return undefined;

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
@@ -14,6 +14,9 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?
   const idleAnim = useLoader(FBXLoader, '/models/Idle.fbx');
   const walkAnim = useLoader(FBXLoader, '/models/Walking.fbx');
   const runAnim = useLoader(FBXLoader, '/models/Running.fbx');
+  
+  // Store all helmet mesh references (array to handle multiple helmet meshes)
+  const helmetRefs = useRef<THREE.Mesh[]>([]);
 
   const bodyTex = useTexture({
     map: 'textures/Body/Astronaut_Suit_Body_Albedo.png',
@@ -90,12 +93,19 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?
       detailMat.vertexNode = vertexNode;
     }
 
-    // Assign materials based on mesh names
+    // Assign materials based on mesh names and store all helmet references
+    helmetRefs.current = []; // Reset array before traversing
     clonedScene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.frustumCulled = false;
+
         if (BODY_MESH_NAMES.includes(child.name)) {
           child.material = bodyMat;
+        } else if (child.name.includes('Helmet')) {
+          // Helmet uses detail material and should be visible by default
+          child.material = detailMat;
+          child.visible = true; // Ensure helmet is visible initially
+          helmetRefs.current.push(child);
         } else if (!child.name.includes('Person')) {
           child.material = detailMat;
         } else {
@@ -122,8 +132,8 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?
       anims.push(clip);
     }
 
-    return { scene: clonedScene, animations: anims };
-  }, [mesh, idleAnim, walkAnim, runAnim, bodyTex.map, bodyTex.aoMap, bodyTex.normalMap, bodyTex.metalnessMap, detailTex.map, detailTex.aoMap, detailTex.normalMap, detailTex.metalnessMap, terrainUniforms, uWorldPos]);
+    return { scene: clonedScene, animations: anims, helmetRefs };
+  }, [mesh, idleAnim, walkAnim, runAnim, bodyTex, detailTex, terrainUniforms, uWorldPos]);
 
-  return { scene, animations };
+  return { scene, animations, helmetRefs };
 }
