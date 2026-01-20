@@ -5,7 +5,7 @@ import { Group, Vector3, Quaternion, Bone, Euler, Object3D, MathUtils } from 'th
 import { useControls } from 'leva';
 
 // Define three camera modes
-enum CameraMode {
+export enum CameraMode {
   TPS = 0,
   FREE = 1,
   FPV = 2,
@@ -14,12 +14,18 @@ enum CameraMode {
 type Props = {
   characterRef: MutableRefObject<Group | null>;
   boneName?: string;
+  onModeChange?: (mode: CameraMode) => void;
 };
 
-export function CameraViewControl({ characterRef, boneName = 'head' }: Props) {
+export function CameraViewControl({ characterRef, boneName = 'head', onModeChange }: Props) {
   const controlsRef = useRef<CameraControls>(null);
   const [mode, setMode] = useState<CameraMode>(CameraMode.TPS);
   const { gl, camera } = useThree();
+
+  // Notify parent when mode changes
+  useEffect(() => {
+    onModeChange?.(mode);
+  }, [mode, onModeChange]);
 
   const { vec3, quat, quatOffset, quatBone, quatLookForward, modelCorrectionQuat, dummyEuler } = useMemo(() => ({
     vec3: new Vector3(),
@@ -33,7 +39,7 @@ export function CameraViewControl({ characterRef, boneName = 'head' }: Props) {
 
   const targetBone = useRef<Bone | undefined>(undefined);
 
-  const config = useControls('Camera FPV Settings', {
+  const config = useControls('FPV Settings', {
     rotateX: { value: -90, min: -180, max: 180, step: 1 },
     rotateY: { value: -90, min: -180, max: 180, step: 1 },
     rotateZ: { value: 0, min: -180, max: 180, step: 1 },
@@ -41,7 +47,7 @@ export function CameraViewControl({ characterRef, boneName = 'head' }: Props) {
     offsetY: { value: 0.7, min: -2, max: 2, step: 0.01 },
     offsetZ: { value: -0.2, min: -2, max: 2, step: 0.01 },
     smoothing: { value: 0.97, min: 0, max: 1, step: 0.01 },
-  });
+  }, { collapsed: true });
 
   // Input Handling (Mode Switching) ---
   useEffect(() => {
@@ -130,7 +136,7 @@ export function CameraViewControl({ characterRef, boneName = 'head' }: Props) {
       makeDefault
       enabled={mode !== CameraMode.FPV}
       minDistance={2}
-      maxDistance={8}
+      maxDistance={20}
       // minPolarAngle={Math.PI / 6}
       maxPolarAngle={Math.PI / 2}
       dampingFactor={0.05}

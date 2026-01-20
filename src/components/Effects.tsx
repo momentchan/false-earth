@@ -1,24 +1,29 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { useControls } from "leva";
 import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three/webgpu";
 import { WebGPURenderer } from "three/webgpu";
 import { pass, uniform } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
-// @ts-ignore - DoFNode may not have TypeScript definitions yet
 import { dof } from "three/addons/tsl/display/DepthOfFieldNode.js";
-// @ts-ignore - SMAANode may not have TypeScript definitions yet
 import { smaa } from "three/addons/tsl/display/SMAANode.js";
+import { CameraMode } from "./camera/CameraViewControl";
 
-export default function Effects() {
+// Add props type to accept the character ref and camera mode
+type EffectsProps = {
+    characterRef?: React.RefObject<THREE.Object3D | THREE.Group | null>;
+    cameraMode?: CameraMode;
+};
+
+export default function Effects({ characterRef, cameraMode = CameraMode.TPS }: EffectsProps) {
     const postProcessingRef = useRef<THREE.PostProcessing | null>(null);
     const bloomPassRef = useRef<any>(null);
     const smaaPassRef = useRef<any>(null);
     const { gl, scene, camera } = useThree();
 
-    const [effectsParams] = useControls('Effects', () => ({
-        enabled: { value: true }
-    }));
+    // Temporary vectors for calculation to avoid GC
+    const targetPos = useMemo(() => new THREE.Vector3(), []);
+    const camPos = useMemo(() => new THREE.Vector3(), []);
 
     const smaaParams = useControls('Effects.SMAA', {
         enabled: { value: false, label: 'Enable SMAA' }
@@ -31,12 +36,46 @@ export default function Effects() {
         radius: { value: 0.5, min: 0, max: 1, step: 0.01 }
     }, { collapsed: true });
 
-    const dofParams = useControls('Effects.DoF', {
+    // DoF settings for TPS mode
+    const dofParamsTPS = useControls('Effects.DoF.TPS', {
         enabled: { value: true, label: 'Enable Depth of Field' },
-        focusDistance: { value: 3, min: 0, max: 100, step: 0.1 },
+        autofocus: { value: true, label: 'Auto Focus Character' },
+        focusDistance: { value: 3, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.TPS.autofocus') }, 
+        focalLength: { value: 25.0, min: 0.01, max: 100, step: 0.1 },
+        bokehScale: { value: 5, min: 0.0, max: 10.0, step: 0.1 }
+    }, { collapsed: true });
+
+    // DoF settings for FREE mode
+    const dofParamsFREE = useControls('Effects.DoF.FREE', {
+        enabled: { value: true, label: 'Enable Depth of Field' },
+        autofocus: { value: false, label: 'Auto Focus Character' },
+        focusDistance: { value: 5, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.FREE.autofocus') }, 
         focalLength: { value: 10.0, min: 0.01, max: 100, step: 0.1 },
         bokehScale: { value: 5, min: 0.0, max: 10.0, step: 0.1 }
     }, { collapsed: true });
+
+    // DoF settings for FPV mode
+    const dofParamsFPV = useControls('Effects.DoF.FPV', {
+        enabled: { value: true, label: 'Enable Depth of Field' },
+        autofocus: { value: false, label: 'Auto Focus Character' },
+        focusDistance: { value: 10, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.FPV.autofocus') }, 
+        focalLength: { value: 50.0, min: 0.01, max: 100, step: 0.1 },
+        bokehScale: { value: 3, min: 0.0, max: 10.0, step: 0.1 }
+    }, { collapsed: true });
+
+    // Get current DoF params based on camera mode
+    const dofParams = useMemo(() => {
+        switch (cameraMode) {
+            case CameraMode.TPS:
+                return dofParamsTPS;
+            case CameraMode.FREE:
+                return dofParamsFREE;
+            case CameraMode.FPV:
+                return dofParamsFPV;
+            default:
+                return dofParamsTPS;
+        }
+    }, [cameraMode, dofParamsTPS, dofParamsFREE, dofParamsFPV]);
 
     const toneMappingParams = useControls('Effects.Tone Mapping', {
         enabled: { value: true, label: 'Enable Tone Mapping' },
@@ -44,21 +83,25 @@ export default function Effects() {
     }, { collapsed: true });
 
     // Use uniforms for DoF parameters to avoid rebuilding PostProcessing
+    // Initialize with current mode's values
     const uFocusDistance = useRef(uniform(dofParams.focusDistance));
     const uFocalLength = useRef(uniform(dofParams.focalLength));
     const uBokehScale = useRef(uniform(dofParams.bokehScale));
     const dofPassRef = useRef<any>(null);
 
-    // Update uniform values
+    // Update uniform values from Leva (Only if NOT autofocusing)
+    // This effect runs when DoF params change or camera mode changes
     useEffect(() => {
-        uFocusDistance.current.value = dofParams.focusDistance;
+        if (!dofParams.autofocus) {
+            uFocusDistance.current.value = dofParams.focusDistance;
+        }
         uFocalLength.current.value = dofParams.focalLength;
         uBokehScale.current.value = dofParams.bokehScale;
-    }, [dofParams.focusDistance, dofParams.focalLength, dofParams.bokehScale]);
+    }, [dofParams.focusDistance, dofParams.focalLength, dofParams.bokehScale, dofParams.autofocus, dofParams.enabled]);
 
     useEffect(() => {
         // Ensure we are using a WebGPURenderer
-        if (!gl || !scene || !camera || !effectsParams.enabled || !(gl instanceof WebGPURenderer)) {
+        if (!gl || !scene || !camera || !(gl instanceof WebGPURenderer)) {
             return;
         }
 
@@ -135,7 +178,7 @@ export default function Effects() {
             bloomPassRef.current = null;
             smaaPassRef.current = null;
         };
-    }, [gl, scene, camera, effectsParams.enabled, smaaParams.enabled, bloomParams.enabled, dofParams.enabled, toneMappingParams.enabled]);
+    }, [gl, scene, camera, smaaParams.enabled, bloomParams.enabled, dofParams.enabled, toneMappingParams.enabled]);
 
     // Update Bloom Uniforms efficiently
     useEffect(() => {
@@ -152,7 +195,8 @@ export default function Effects() {
     useEffect(() => {
         if (dofPassRef.current && dofParams.enabled) {
             // Update DoF node properties directly if they exist
-            if (dofPassRef.current.focusDistance) {
+            // Only update focusDistance if NOT autofocusing
+            if (dofPassRef.current.focusDistance && !dofParams.autofocus) {
                 dofPassRef.current.focusDistance.value = dofParams.focusDistance;
             }
             if (dofPassRef.current.focalLength) {
@@ -162,7 +206,7 @@ export default function Effects() {
                 dofPassRef.current.bokehScale.value = dofParams.bokehScale;
             }
         }
-    }, [dofParams.focusDistance, dofParams.focalLength, dofParams.bokehScale, dofParams.enabled]);
+    }, [dofParams.focusDistance, dofParams.focalLength, dofParams.bokehScale, dofParams.enabled, dofParams.autofocus]);
 
     // Update Exposure efficiently
     useEffect(() => {
@@ -172,11 +216,24 @@ export default function Effects() {
         }
     }, [gl, toneMappingParams.exposure, toneMappingParams.enabled]);
 
-    // Render Loop
+    // Render Loop & Auto Focus Logic
     // Priority 1 ensures this runs AFTER R3F's default render/update cycle, 
     // effectively taking over the screen output.
     useFrame(() => {
-        if (postProcessingRef.current && effectsParams.enabled) {
+        // --- AUTOFOCUS LOGIC ---
+        if (dofParams.enabled && dofParams.autofocus && characterRef?.current) {
+            // Get accurate world positions
+            characterRef.current.getWorldPosition(targetPos);
+            camera.getWorldPosition(camPos);
+            
+            // Calculate distance
+            const dist = camPos.distanceTo(targetPos);
+            
+            // Update the uniform directly
+            uFocusDistance.current.value = dist;
+        }
+
+        if (postProcessingRef.current) {
             postProcessingRef.current.render();
         }
     }, 1);

@@ -14,14 +14,14 @@ import { Character } from "../components/character";
 import { TerrainUniforms } from "../components/terrain/types";
 import { Background } from "../components/Background";
 import { Stars } from "../components/Stars";
-import { CameraViewControl } from "../components/camera/CameraViewControl";
+import { CameraViewControl, CameraMode } from "../components/camera/CameraViewControl";
 import { Group } from "three";
 
 export default function App() {
     const [terrainUniforms, setTerrainUniforms] = useState<TerrainUniforms | undefined>(undefined)
-    const [lightPosition, setLightPosition] = useState<THREE.Vector3 | undefined>(undefined)
     const [debugMode, setDebugMode] = useState(false) // Toggle for culling debug mode
     const [trailTexture, setTrailTexture] = useState<THREE.StorageTexture | null>(null)
+    const [cameraMode, setCameraMode] = useState<CameraMode>(CameraMode.TPS)
     const characterWorldPosRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
     const characterRef = useRef<Group>(null)
 
@@ -50,12 +50,12 @@ export default function App() {
 
             <color attach="background" args={['#000000']} />
 
-            <CameraViewControl characterRef={characterRef} />
+            <CameraViewControl characterRef={characterRef} onModeChange={setCameraMode} />
             <Environment preset="city" environmentIntensity={0.5} />
-            <DirectionalLight onPositionChange={setLightPosition} />
+            <DirectionalLight />
             <Background />
 
-            <Effects />
+            <Effects characterRef={characterRef} cameraMode={cameraMode} />
 
             <Stars />
             

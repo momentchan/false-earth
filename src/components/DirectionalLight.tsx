@@ -3,11 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useControls } from 'leva'
 import * as THREE from 'three'
 
-interface DirectionalLightProps {
-    onPositionChange?: (position: THREE.Vector3) => void
-}
 
-export function DirectionalLight({ onPositionChange }: DirectionalLightProps = {} as DirectionalLightProps) {
+export function DirectionalLight() {
     const directionalLightRef = useRef<THREE.DirectionalLight>(null)
     const helperRef = useRef<THREE.DirectionalLightHelper | null>(null)
     const { scene } = useThree()
@@ -68,11 +65,6 @@ export function DirectionalLight({ onPositionChange }: DirectionalLightProps = {
         rotationMatrixRef.current.makeRotationY(rotationY)
         positionRef.current.applyMatrix4(rotationMatrixRef.current)
         directionalLightRef.current.position.copy(positionRef.current)
-        
-        // Notify parent of position change (only clone when callback exists)
-        if (onPositionChange) {
-            onPositionChange(positionRef.current.clone())
-        }
         
         // Update helper if it exists
         if (helperRef.current) {
