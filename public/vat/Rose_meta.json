@@ -1,0 +1,12 @@
+{
+  "frameCount": 340,
+  "padding": 2,
+  "textureWidth": 1026,
+  "textureHeight": 988,
+  "compressNormal": true,
+  "textures": {
+    "position": "Rose_pos.exr",
+    "normal": "Rose_nrm.png"
+  },
+  "glb": "Rose.glb"
+}

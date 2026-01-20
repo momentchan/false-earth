@@ -5,7 +5,7 @@ import { createBladeGeometry, createGrassData, createPositions } from "./core/gr
 import { createGrassMaterial } from "./core/grassMaterial";
 import { DEFAULT_BLADES_PER_AXIS } from "./core/constants";
 import type { LODBufferConfig } from "./core/types";
-import { TerrainUniforms } from "../terrain/types";
+import { TerrainUniforms } from "../types";
 
 interface GrassLODProps {
   grassParams: any;

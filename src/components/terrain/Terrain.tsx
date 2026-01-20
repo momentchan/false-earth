@@ -16,7 +16,7 @@ import {
     getTerrainHeight,
 } from './terrainHelpers'
 import { useGridSnapping } from '../useGridSnapping'
-import { TerrainUniforms } from './types'
+import { TerrainUniforms } from '../types'
 
 
 export function Terrain({

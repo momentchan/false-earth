@@ -44,7 +44,7 @@ import {
   getTerrainHeight,
   getTerrainNormal,
 } from "../../terrain/terrainHelpers";
-import { TerrainUniforms } from "../../terrain/types";
+import { TerrainUniforms } from "../../types";
 import {
   bezier3,
   bezier3Tangent,

@@ -1,6 +1,6 @@
 import { instancedArray, storage } from 'three/tsl'
 import * as THREE from 'three/webgpu'
-import { TerrainUniforms } from '../../terrain/types'
+import { TerrainUniforms } from '../../types'
 
 export interface TerrainParams {
   amplitude: number

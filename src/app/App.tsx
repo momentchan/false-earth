@@ -11,22 +11,24 @@ import { GrassCullingDebug } from "../components/debug/GrassCullingDebug";
 import { DebugModeToggle } from "../components/debug/DebugModeToggle";
 import Effects from "../components/Effects";
 import { Character } from "../components/character";
-import { TerrainUniforms } from "../components/terrain/types";
+import { TerrainUniforms } from "../components/types";
 import { Background } from "../components/Background";
 import { Stars } from "../components/Stars";
 import { CameraViewControl } from "../components/camera/CameraViewControl";
 import { useGameStore } from "../store/gameStore";
 import { Group } from "three";
+import { CameraControls } from "@react-three/drei";
+import Rose from "../components/Rose";
 
 export default function App() {
     const [terrainUniforms, setTerrainUniforms] = useState<TerrainUniforms | undefined>(undefined)
     const [debugMode, setDebugMode] = useState(false) // Toggle for culling debug mode
     const [trailTexture, setTrailTexture] = useState<THREE.StorageTexture | null>(null)
     const characterRef = useRef<Group>(null)
-    
+
     // Store character ref in global state
     const setCharacterRef = useGameStore((state) => state.setCharacterRef);
-    
+
     useEffect(() => {
         setCharacterRef(characterRef);
         return () => setCharacterRef(null);
@@ -71,15 +73,21 @@ export default function App() {
 
             <color attach="background" args={['#000000']} />
 
-            <CameraViewControl />
+
+
+            <CameraControls
+                makeDefault
+            />
+            {/* <CameraViewControl /> */}
             <Environment preset="city" environmentIntensity={0.5} />
             <DirectionalLight />
             <Background />
 
-            <Effects />
+            {/* <Effects /> */}
 
-            <Stars />
-            
+            <Rose />
+            {/* <Stars /> */}
+
 
             {/* Toggle between normal mode and culling debug mode */}
             <DebugModeToggle onToggle={() => setDebugMode(prev => !prev)} />
@@ -87,12 +95,12 @@ export default function App() {
                 <GrassCullingDebug />
             ) : (
                 <>
-                    <Terrain onUniformsChange={setTerrainUniforms} />
-                    <GrassWebGPU terrainUniforms={terrainUniforms} trailTexture={trailTexture} />
-                    <Character ref={characterRef} position={[0, 0, 0]} scale={0.01} terrainUniforms={terrainUniforms} onTrailTextureChange={setTrailTexture} />
+                    {/* <Terrain onUniformsChange={setTerrainUniforms} /> */}
+                    {/* <GrassWebGPU terrainUniforms={terrainUniforms} trailTexture={trailTexture} /> */}
+                    {/* <Character ref={characterRef} position={[0, 0, 0]} scale={0.01} terrainUniforms={terrainUniforms} onTrailTextureChange={setTrailTexture} /> */}
                 </>
             )}
-            
+
         </Canvas>
     </>
 }
