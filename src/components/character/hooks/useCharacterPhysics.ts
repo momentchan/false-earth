@@ -9,7 +9,6 @@ export function useCharacterPhysics(
   scene: Object3D | null,
   animations: AnimationClip[]
 ) {
-  // Animation System - bind to scene (contains skeleton), not parent group
   const sceneRef = useRef<Object3D | null>(null);
   sceneRef.current = scene;
   const { actions } = useAnimations(animations, sceneRef);
@@ -17,6 +16,7 @@ export function useCharacterPhysics(
   // Physics State
   const state = useRef({
     speed: 0,
+    rotationVelocity: 0, // Current smoothed rotation velocity
     isMoving: false,
     isRunning: false,
     rotateLeft: false,
@@ -30,6 +30,7 @@ export function useCharacterPhysics(
     runSpeed: 3.5,
     rotateSpeed: 2.5,
     speedLerpFactor: 0.1,
+    rotationLerpFactor: 0.15, // Smoothing factor for rotation
     animBlendLerpFactor: 0.15,
   });
 
@@ -70,16 +71,22 @@ export function useCharacterPhysics(
     if (!groupRef.current) return;
     const s = state.current;
 
+
     // --- Rotation ---
+    let targetRotationVelocity = 0;
     if (s.rotateLeft) {
-      groupRef.current.rotation.y += s.rotateSpeed * delta;
+      targetRotationVelocity = s.rotateSpeed;
+    } else if (s.rotateRight) {
+      targetRotationVelocity = -s.rotateSpeed;
     }
-    if (s.rotateRight) {
-      groupRef.current.rotation.y -= s.rotateSpeed * delta;
+    
+    s.rotationVelocity = THREE.MathUtils.lerp(s.rotationVelocity, targetRotationVelocity, s.rotationLerpFactor);
+    
+    if (Math.abs(s.rotationVelocity) > 0.001) {
+      groupRef.current.rotation.y += s.rotationVelocity * delta;
     }
 
     // --- Movement Calculation ---
-    // Determine target speed based on whether Shift is held
     const currentMaxSpeed = s.isRunning ? s.runSpeed : s.walkSpeed;
     const targetSpeed = s.isMoving ? currentMaxSpeed : 0;
     
@@ -90,7 +97,6 @@ export function useCharacterPhysics(
     }
 
     // --- Animation Blending Logic (Blend Tree) ---
-    
     const isRotating = s.rotateLeft || s.rotateRight;
     const isStationary = Math.abs(s.speed) < 0.05;
     const isTurningInPlace = isRotating && isStationary;
@@ -100,7 +106,6 @@ export function useCharacterPhysics(
     let targetRun = 0;
 
     if (isTurningInPlace) {
-      // Special handling for turning in place
       targetIdle = 0.3;
       targetWalk = 0.7;
       targetRun = 0;
@@ -117,7 +122,6 @@ export function useCharacterPhysics(
       else {
         // Calculate how much over walkSpeed as a ratio
         const t = (s.speed - s.walkSpeed) / (s.runSpeed - s.walkSpeed);
-        // Clamp t to 0~1 (prevent animation glitches from sudden overspeed)
         const clampT = Math.min(Math.max(t, 0), 1);
         
         targetIdle = 0;

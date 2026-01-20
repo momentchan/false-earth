@@ -5,7 +5,7 @@ import { struct } from 'three/tsl'
 
 export const DEFAULT_BLADES_PER_AXIS = 1024;
 export const DEFAULT_GRASS_AREA_SIZE = 80;
-export const DEFAULT_GRID_DIVISIONS = 64; // need to be divisible by bladesPerAxis
+export const DEFAULT_GRID_DIVISIONS = 1024; // need to be divisible by bladesPerAxis
 
 // Default LOD segments configuration
 export const DEFAULT_LOD_SEGMENTS_CONFIG = [

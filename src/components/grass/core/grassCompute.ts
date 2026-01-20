@@ -32,6 +32,7 @@ import {
   atomicStore,
   int,
   mx_noise_float,
+  abs,
 } from "three/tsl";
 import type { LODBufferConfig } from "./types";
 
@@ -432,9 +433,26 @@ export function createGrassCompute(
     const params1 = getClumpParams(bestCellId);
     const params2 = getClumpParams(secondBestCellId);
 
+    const calculateEdgeFade = (worldPos: any) => {
+      const worldPosRaw = worldPos.sub(uniforms.uGroupOffset);
+      const diffX = worldPosRaw.x.div(uniforms.uGridCellSize);
+      const diffZ = worldPosRaw.z.div(uniforms.uGridCellSize);
+      const totalGridCells = uniforms.uGrassAreaSize.div(uniforms.uGridCellSize);
+      const halfGridCells = totalGridCells.mul(0.5);
+      const edgeGrids = float(10.0); // Number of grid cells to fade over
+      
+      const fadeStart = halfGridCells.sub(edgeGrids);
+      const fadeEnd = halfGridCells;
+      const fadeX = float(1.0).sub(smoothstep(fadeStart, fadeEnd, abs(diffX)));
+      const fadeZ = float(1.0).sub(smoothstep(fadeStart, fadeEnd, abs(diffZ)));
+      return fadeX.mul(fadeZ);
+    };
+    
+    const fade = calculateEdgeFade(worldPos);
+
     const clumpParams = {
-      height:  mix(params2.height, params1.height, blendFactor),
-      width: mix(params2.width, params1.width, blendFactor),
+      height: mix(params2.height, params1.height, blendFactor).mul(fade),
+      width: mix(params2.width, params1.width, blendFactor).mul(fade),
       bend: mix(params2.bend, params1.bend, blendFactor),
       type: params1.type
     };
