@@ -1,4 +1,3 @@
-import * as THREE from 'three'
 
 // Core VAT metadata interface
 // New format with textureWidth, textureHeight, textures, padding, etc.

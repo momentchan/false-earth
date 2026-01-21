@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useImperativeHandle, forwardRef } from "rea
 import * as THREE from "three/webgpu";
 import { useTexture } from "@react-three/drei";
 import { folder, useControls } from "leva";
-import { atomicAdd, atomicStore, storage, uint, uniform, vec3, instanceIndex, instancedArray, If, time, Fn, float, struct } from "three/tsl";
+import { storage, uniform, vec3, instancedArray, struct } from "three/tsl";
 import { useVATPreloader } from "./VATPreloader";
 import { extractGeometryFromScene, setupVATGeometry } from "./utils";
 import { createVATMaterial } from "./materials/vatNodeMaterial";
@@ -10,6 +10,7 @@ import { drawIndirectStructure } from "../grass/core/constants";
 import { useFrame, useThree } from "@react-three/fiber";
 import { WebGPURenderer } from 'three/webgpu'
 import { vatStructure } from "./constant";
+import { createUpdateCompute, createResetCompute, createSpawnCompute, createVisibleIndicesBuffer } from "./roseCompute";
 
 // Define API exposed to parent component
 export type RoseHandle = {
@@ -21,20 +22,42 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
     const { scene, posTex, nrmTex, meta, isLoaded } = useVATPreloader('/vat/Rose_meta.json')
     const groupRef = useRef<THREE.Group>(null)
 
+    const [config] = useControls('Rose', () => ({
+        Render: folder({
+            Green: { value: '#325825' },
+        }),
+        Lifecycle: folder({
+            DelayMin: { value: 0, min: 0, max: 10, step: 0.1 },
+            DelayMax: { value: 0, min: 0, max: 10, step: 0.1 },
+            GrowMin: { value: 2, min: 0, max: 10, step: 0.1 },
+            GrowMax: { value: 3, min: 0, max: 10, step: 0.1 },
+            KeepMin: { value: 2, min: 0, max: 10, step: 0.1 },
+            KeepMax: { value: 2, min: 0, max: 10, step: 0.1 },
+            DieMin: { value: 2, min: 0, max: 10, step: 0.1 },
+            DieMax: { value: 3, min: 0, max: 10, step: 0.1 },
+        }),
+    }))
+
     const uniforms = useMemo(() => ({
         uGreen: uniform(vec3(0.6, 0.9, 0.6)),
+    }), [])
+
+    // Compute uniforms (can have more settings in the future)
+    const computeUniforms = useMemo(() => ({
+        uDelayMin: uniform(0.1),
+        uDelayMax: uniform(0.3),
+        uGrowMin: uniform(0.3),
+        uGrowMax: uniform(0.8),
+        uKeepMin: uniform(1.0),
+        uKeepMax: uniform(2.0),
+        uDieMin: uniform(0.2),
+        uDieMax: uniform(0.5),
     }), [])
 
     const petalTex = useTexture('/textures/Rose/Rose_Petal_Diff.png')
     petalTex.colorSpace = THREE.SRGBColorSpace
     const outlineTex = useTexture('/textures/Rose/Rose_Outline.png')
-
-    const [config] = useControls('Rose', () => ({
-        Render: folder({
-            Green: { value: '#325825' },
-        }),
-    }))
-
+   
     const spawnUniforms = useMemo(() => ({
         uSpawnPos: uniform(vec3(0)),
         uDoSpawn: uniform(0), // 0=no spawn, 1=spawn
@@ -58,24 +81,25 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
     }), [spawnUniforms])
 
 
-    // Initialize data buffer (using struct: vec3 + float + float + float = 6 floats per instance)
+    // Initialize data buffer
     const vatData = useMemo(() => {
-        // Calculate total size (vec3=3 + float=1 + float=1 + float=1 = 6 floats per instance)
-        const data = new Float32Array(count * 6)
+        // Calculate total size: position(vec3=3) + isActive(1) + frame(1) + startTime(1) + seed(1) = 7 floats per instance
+        const data = new Float32Array(count * 7)
 
-        // Pre-fill initial positions in CPU (Refactor: positions in buffer, not calculated in shader)
         for (let i = 0; i < count; i++) {
-            const stride = 6
-            // Position (x, y, z) - currently linear arrangement for visual confirmation
-            data[i * stride + 0] = i * 0.1
+            const stride = 7
+            // Position (x, y, z)
+            data[i * stride + 0] = 0  
             data[i * stride + 1] = 0
             data[i * stride + 2] = 0
-            // Scale
-            data[i * stride + 3] = 1.0
+            // isActive
+            data[i * stride + 3] = 0
             // Frame
             data[i * stride + 4] = 0
-            // isActive
-            data[i * stride + 5] = 1.0
+            // Start Time
+            data[i * stride + 5] = 0.0
+            // Seed
+            data[i * stride + 6] = 0.0
         }
         return instancedArray(data, vatStructure)
     }, [count])
@@ -102,7 +126,7 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
         // Compute Shaders
         const resetCompute = createResetCompute(drawStorage, indexCount)
         const spawnCompute = createSpawnCompute(vatData, spawnStorage, spawnUniforms, count)
-        const updateCompute = createUpdateCompute(drawStorage, visibleIndicesBuffer, vatData, count)
+        const updateCompute = createUpdateCompute(drawStorage, visibleIndicesBuffer, vatData, count, computeUniforms)
 
         computeRefs.current = { reset: resetCompute, spawn: spawnCompute, update: updateCompute }
 
@@ -135,6 +159,21 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
         uniforms.uGreen.value.set(baseColor.r, baseColor.g, baseColor.b)
     }, [config, uniforms])
 
+    // Update compute uniforms when config changes
+    useEffect(() => {
+        const life = (config as any).Lifecycle
+        if (life) {
+            computeUniforms.uDelayMin.value = life.DelayMin
+            computeUniforms.uDelayMax.value = life.DelayMax
+            computeUniforms.uGrowMin.value = life.GrowMin
+            computeUniforms.uGrowMax.value = life.GrowMax
+            computeUniforms.uKeepMin.value = life.KeepMin
+            computeUniforms.uKeepMax.value = life.KeepMax
+            computeUniforms.uDieMin.value = life.DieMin
+            computeUniforms.uDieMax.value = life.DieMax
+        }
+    }, [config, computeUniforms])
+
     useFrame(() => {
         const renderer = gl as unknown as WebGPURenderer
         if (!computeRefs.current) return
@@ -158,74 +197,3 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
 Rose.displayName = 'Rose'
 
 export default Rose
-
-
-export function createUpdateCompute(
-    drawStorage: ReturnType<typeof storage>,
-    indices: ReturnType<typeof instancedArray>,
-    vatData: ReturnType<typeof instancedArray>,
-    count: number,
-) {
-    const updateFn = Fn(() => {
-        const data = vatData.element(instanceIndex)
-
-        // Simple animation logic: if active, update frame
-        If(data.get("isActive").greaterThan(0), () => {
-
-            const age = time.sub(data.get("startTime"))
-            const progress = age.div(float(2.0))
-
-            If(progress.greaterThan(1.0), () => {
-                data.get("isActive").assign(0.0)
-                data.get("scale").assign(0.0)
-            }).Else(() => {
-                data.get("frame").assign(progress) // Animate
-                // Add to draw queue
-                const idx = atomicAdd(drawStorage.get("instanceCount"), uint(1))
-                indices.element(idx).assign(uint(instanceIndex))
-            })
-        })
-    })
-    return updateFn().compute(count)
-}
-
-
-export function createResetCompute(drawStorage: ReturnType<typeof storage>, indexCount: number) {
-    return Fn(() => {
-        drawStorage.get("vertexCount").assign(uint(indexCount))
-        atomicStore(drawStorage.get("instanceCount"), uint(0))
-    })().compute(1)
-}
-
-export function createSpawnCompute(
-    vatData: ReturnType<typeof instancedArray>,
-    spawnStorage: ReturnType<typeof storage>, // use to record the current index of the rose
-    uniforms: { uSpawnPos: any, uDoSpawn: any },
-    maxCount: number
-) {
-    const spawnFn = Fn(() => {
-        // only execute when the CPU notifies to Spawn
-        If(uniforms.uDoSpawn.greaterThan(0), () => {
-
-            // atomic operation only allow one thread to execute at a time
-            // this can prevent the other 63 threads in the same Workgroup from executing
-            If(instanceIndex.equal(0), () => {
-                const headIndex = atomicAdd(spawnStorage.get("index"), uint(1)).mod(uint(maxCount))
-
-                const instance = vatData.element(headIndex)
-
-                instance.get('position').assign(uniforms.uSpawnPos) // set to the current position of the character
-                instance.get('startTime').assign(time)              // record the birth time
-                instance.get('isActive').assign(1.0)                // mark as alive
-                instance.get('frame').assign(0.0)                   // reset the animation frame
-                instance.get('scale').assign(2.0)                   // (optional) add random scale
-            })
-        })
-    })
-    // this shader only needs to run 1 time (single thread processing pointer movement)
-    return spawnFn().compute(1)
-}
-
-export function createVisibleIndicesBuffer(count: number) {
-    return instancedArray(new Uint32Array(count), 'uint')
-}

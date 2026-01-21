@@ -59,9 +59,12 @@ export function createVATMaterial(
   material.positionNode = Fn(() => {
     // Read VAT vertex offset
     const vatOffset = texture(posTex, sampleUV).rgb;
+
+    const seed = data.get("seed");
+    const scale = mix(2.0, 0.5, seed);
     
     // Apply instance scale
-    const scaledOffset = vatOffset.mul(data.get("scale"));
+    const scaledOffset = vatOffset.mul(scale);
     
     // Apply world position
     // Move vertex from local space to world coordinates specified in buffer
