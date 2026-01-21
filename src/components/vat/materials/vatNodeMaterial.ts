@@ -17,6 +17,8 @@ import {
   transformNormalToView,
   mix,
   varying,
+  instanceIndex,
+  instancedArray,
 } from "three/tsl";
 import { VATMeta } from "../types";
 
@@ -28,6 +30,8 @@ import { VATMeta } from "../types";
 export function createVATMaterial(
   posTex: THREE.Texture,
   nrmTex: THREE.Texture,
+  vatData: ReturnType<typeof instancedArray>,
+  visibleIndicesBuffer: ReturnType<typeof instancedArray>,
   meta: VATMeta,
   uniforms: Record<string, any>,
   colorTex: THREE.Texture,
@@ -35,6 +39,13 @@ export function createVATMaterial(
 ): THREE.MeshStandardNodeMaterial {
   const material = new THREE.MeshStandardNodeMaterial();
   material.side = THREE.DoubleSide;
+
+
+
+  const trueIndex = visibleIndicesBuffer.element(instanceIndex);
+  const data = vatData.element(trueIndex);
+
+  const frame = data.get("frame");
 
 
   // Calculate uniforms
@@ -45,17 +56,27 @@ export function createVATMaterial(
   // Get uv1 coordinates (second UV set)
   const uv1 = uv(1);
 
-  const frameIndex = uFrames.sub(float(1.0)).mul(uniforms.uFrame);
+  const frameIndex = uFrames.sub(float(1.0)).mul(frame);
   const frameOffset = frameIndex.mul(texelSizeX);
 
   const sampleUV = vec2(uv1.x.add(frameOffset), uv1.y);
 
-  // Sample position texture
-  const vatPos = texture(posTex, sampleUV).rgb;
 
-  material.positionNode = positionLocal.add(vatPos);
+
+  material.positionNode = Fn(() => {
+    // const trueIndex = visibleIndicesBuffer.element(instanceIndex);
+
+    const offset = vec3(instanceIndex, 0, 0).mul(0.1);
+    // Sample position texture
+    const vatPos = texture(posTex, sampleUV).rgb;
+    return positionLocal.add(vatPos).add(offset);
+  })();
+
+
+
   // Simple color node: petal color, optionally mixed with outline
   material.colorNode = Fn(() => {
+
     const uvCord = vec2(uv().x.sub(0.5).mul(0.8).add(0.5), uv().y);
 
     const epsilon = 0.05;

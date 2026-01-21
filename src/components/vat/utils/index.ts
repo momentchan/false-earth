@@ -1,8 +1,6 @@
 import * as THREE from 'three'
 import CustomShaderMaterial from 'three-custom-shader-material/vanilla'
 import { VATMeta, VATShaderOverrides, VATMeshConfig } from '../types'
-import { createVATMaterial, createVATDepthMaterial } from '../materials'
-
 
 /**
  * Setup VAT geometry: generate UV1 coordinates and convert coordinate system
@@ -59,45 +57,6 @@ interface VATMaterialParams {
 }
 
 /**
- * Create VAT materials (main and optionally depth)
- */
-function createVATMaterials(
-  params: VATMaterialParams,
-  useDepthMaterial: boolean
-): {
-  vatMaterial: CustomShaderMaterial
-  vatDepthMaterial?: CustomShaderMaterial
-  materials: CustomShaderMaterial[]
-} {
-  const materials: CustomShaderMaterial[] = []
-  
-  const vatMaterial = createVATMaterial(
-    params.posTex,
-    params.nrmTex,
-    params.envMap,
-    params.metaData,
-    params.materialControls,
-    params.shaderOverrides,
-    params.customUniforms
-  )
-  materials.push(vatMaterial)
-
-  let vatDepthMaterial: CustomShaderMaterial | undefined
-  if (useDepthMaterial) {
-    vatDepthMaterial = createVATDepthMaterial(
-      params.posTex,
-      params.nrmTex,
-      params.metaData,
-      params.shaderOverrides,
-      params.customUniforms
-    )
-    materials.push(vatDepthMaterial)
-  }
-
-  return { vatMaterial, vatDepthMaterial, materials }
-}
-
-/**
  * Configure mesh shadow and culling properties
  */
 function configureMeshProperties(
@@ -112,41 +71,6 @@ function configureMeshProperties(
   Object.assign(mesh, { ...defaultConfig, ...meshConfig })
 }
 
-/**
- * Create VAT mesh from geometry (similar to createVATInstancedMesh but for single mesh)
- */
-export function createVATMesh(
-  geometry: THREE.BufferGeometry,
-  posTex: THREE.Texture,
-  nrmTex: THREE.Texture | null,
-  envMap: THREE.Texture | null,
-  metaData: VATMeta,
-  materialControls: any,
-  useDepthMaterial: boolean,
-  shaderOverrides?: VATShaderOverrides,
-  customUniforms?: Record<string, any>,
-  meshConfig?: VATMeshConfig
-): {
-  mesh: THREE.Mesh
-  materials: CustomShaderMaterial[]
-} {
-  setupVATGeometry(geometry, metaData)
-
-  const { vatMaterial, vatDepthMaterial, materials } = createVATMaterials(
-    { posTex, nrmTex, envMap, metaData, materialControls, shaderOverrides, customUniforms },
-    useDepthMaterial
-  )
-
-  const mesh = new THREE.Mesh(geometry, vatMaterial)
-  
-  if (vatDepthMaterial) {
-    mesh.customDepthMaterial = vatDepthMaterial
-  }
-
-  configureMeshProperties(mesh, meshConfig)
-
-  return { mesh, materials }
-}
 
 /**
  * Calculate VAT frame based on animation mode
@@ -181,51 +105,4 @@ export function extractGeometryFromScene(scene: THREE.Group): THREE.BufferGeomet
   })
   
   return geometry
-}
-
-/**
- * Create VAT InstancedMesh
- */
-export function createVATInstancedMesh(
-  geometry: THREE.BufferGeometry,
-  posTex: THREE.Texture,
-  nrmTex: THREE.Texture | null,
-  envMap: THREE.Texture | null,
-  metaData: VATMeta,
-  materialControls: any,
-  instanceCount: number,
-  useDepthMaterial: boolean,
-  shaderOverrides?: VATShaderOverrides,
-  customUniforms?: Record<string, any>,
-  meshConfig?: VATMeshConfig
-): {
-  instancedMesh: THREE.InstancedMesh
-  materials: CustomShaderMaterial[]
-} {
-  setupVATGeometry(geometry, metaData)
-
-  const { vatMaterial, vatDepthMaterial, materials } = createVATMaterials(
-    { posTex, nrmTex, envMap, metaData, materialControls, shaderOverrides, customUniforms },
-    useDepthMaterial
-  )
-
-  const instancedMesh = new THREE.InstancedMesh(geometry, vatMaterial, instanceCount)
-  
-  // Create random seed attribute for each instance
-  const seedArray = new Float32Array(instanceCount)
-  const instanceIdArray = new Float32Array(instanceCount)
-  for (let i = 0; i < instanceCount; i++) {
-    seedArray[i] = Math.random()
-    instanceIdArray[i] = i // Instance ID from 0 to instanceCount-1
-  }
-  instancedMesh.geometry.setAttribute('instanceSeed', new THREE.InstancedBufferAttribute(seedArray, 1))
-  instancedMesh.geometry.setAttribute('instanceID', new THREE.InstancedBufferAttribute(instanceIdArray, 1))
-  
-  if (vatDepthMaterial) {
-    instancedMesh.customDepthMaterial = vatDepthMaterial
-  }
-
-  configureMeshProperties(instancedMesh, meshConfig)
-
-  return { instancedMesh, materials }
 }

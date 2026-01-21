@@ -17,28 +17,6 @@ export interface VATMeta {
   storeDelta?: boolean
 }
 
-// Material controls interface
-export interface VATMaterialControls {
-  roughness: number
-  metalness: number
-  transmission: number
-  thickness: number
-  ior: number
-  clearcoat: number
-  clearcoatRoughness: number
-  reflectivity: number
-  envMapIntensity: number
-  sheen: number
-  sheenRoughness: number
-  sheenColor: string
-  iridescence: number
-  iridescenceIOR: number
-  iridescenceThicknessMin: number
-  iridescenceThicknessMax: number
-  attenuationDistance: number
-  attenuationColor: string
-  bumpScale: number
-}
 
 // Common VAT props shared across components
 export interface CommonVATProps {
@@ -77,27 +55,4 @@ export interface VATMeshProps extends CommonVATProps {
   customUniforms?: Record<string, any>
   meshConfig?: VATMeshConfig
   materialConfig?: Partial<VATMaterialControls>
-}
-
-// Default material values
-export const DEFAULT_VAT_MATERIAL: VATMaterialControls = {
-  roughness: 0.4,
-  metalness: 0.6,
-  transmission: 0,
-  thickness: 0,
-  ior: 1.5,
-  clearcoat: 0.1,
-  clearcoatRoughness: 0.1,
-  reflectivity: 0.5,
-  envMapIntensity: 1,
-  bumpScale: 1.0,
-  sheen: 0,
-  sheenRoughness: 0.1,
-  sheenColor: '#3695ff',
-  iridescence: 0,
-  iridescenceIOR: 1.3,
-  iridescenceThicknessMin: 100,
-  iridescenceThicknessMax: 400,
-  attenuationDistance: Infinity,
-  attenuationColor: '#ffffff',
 }
