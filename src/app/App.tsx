@@ -1,7 +1,7 @@
 import { Environment } from "@react-three/drei";
 import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { Terrain } from "../components/terrain/Terrain";
 import { Wind } from "../components/wind/Wind";
 import { DirectionalLight } from "../components/DirectionalLight";
@@ -60,7 +60,10 @@ export default function App() {
 
             <CameraViewControl />
 
-            <Environment preset="city" environmentIntensity={0.5} />
+            <Environment 
+                files="/textures/potsdamer_platz_1k_nb.hdr" 
+                environmentIntensity={0.5} 
+            />
             <DirectionalLight />
             <Background />
             <Stars />

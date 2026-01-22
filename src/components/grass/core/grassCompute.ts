@@ -72,12 +72,17 @@ export function createGrassCompute(
             ? float(1e9) // Use a very large number for Infinity
             : float(config.maxDistance);
 
-        const inRange = distToCamera
+        const noiseScale = uniforms.uLODNoiseScale
+        const noiseSeed = fract(float(instanceIndex).mul(0.12345)).mul(2.0).sub(1.0);
+        const noiseOffset = distToCamera.mul(noiseScale).mul(noiseSeed);
+        const noisyDist = distToCamera.add(noiseOffset);
+
+        const inRange = noisyDist
           .greaterThanEqual(minDist)
           .and(
             isLast || config.maxDistance === Infinity
-              ? distToCamera.lessThanEqual(maxDist)
-              : distToCamera.lessThan(maxDist)
+              ? noisyDist.lessThanEqual(maxDist)
+              : noisyDist.lessThan(maxDist)
           );
 
         const lodBlock = () => {
@@ -190,8 +195,12 @@ export function createGrassCompute(
       .and(ndcTop.z.greaterThan(float(0.0).sub(margin)))
       .and(ndcTop.z.lessThan(float(1.0).add(margin)));
 
+
+    // circle
+    const isInCircle = length(worldPos.sub(uniforms.uGroupOffset)).lessThan(uniforms.uGrassAreaSize.mul(0.5));
+
     // Blade is in frustum if either bottom or top is visible
-    const inFrustum = bottomInFrustum.or(topInFrustum);
+    const inFrustum = bottomInFrustum.or(topInFrustum).and(isInCircle);
     return inFrustum;
   });
 

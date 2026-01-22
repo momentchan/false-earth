@@ -344,13 +344,6 @@ export function createGrassMaterial(
       .mul(oneMinus(distFadeFactor))
       .add(vec3(grayValue).mul(distFadeFactor));
 
-    // Material Blending: fade to ground color at distance
-    const mixToGroundColor = smoothstep(float(near), float(far), dist);
-    const mixToGroundFactor = mixToGroundColor.mul(float(0.5));
-    finalColor = finalColor
-      .mul(oneMinus(mixToGroundFactor))
-      .add(uniforms.uGroundColor.mul(mixToGroundFactor));
-
     // Noise
     const uvCoords = uv();
     const noiseUv = mul(
@@ -392,8 +385,9 @@ export function createGrassMaterial(
     return vec3(0.0, 0.0, 0.0);
   })();
 
-  // Uncomment to enable LOD debug coloring
+  
   // material.fragmentNode = Fn(() => {
+  //   return uLodDebugColor;
 
   //   const uCharacterWorldPos = uniforms.uCharacterWorldPos ?? uniform(new THREE.Vector3(0, 0, 0));
 

@@ -29,11 +29,14 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
             green2: { value: '#699555' },
             scaleMin: { value: 5, min: 0, max: 20, step: 0.1 },
             scaleMax: { value: 10, min: 0, max: 20, step: 0.1 },
-            normalScale: { value: 1.2, min: 0, max: 10, step: 0.1 },
+            normalScale: { value: 0, min: 0, max: 10, step: 0.1 },
             hueShift: { value: 0, min: 0, max: 1, step: 0.01 },
             noiseScale: { value: { x: 1, y: 100 }, min: 0, max: 100, step: 0.1 },
-            metalness: { value: 0, min: 0, max: 1, step: 0.01 },
+            metalness: { value: 1, min: 0, max: 1, step: 0.01 },
             roughness: { value: 0.7, min: 0, max: 1, step: 0.01 },
+            emissiveColor: { value: '#ffcc99' },
+            emissiveIntensity: { value: 1, min: 0, max: 2, step: 0.1 },
+            fresnelPower: { value: 2.0, min: 0.5, max: 5, step: 0.1 },
         }, { collapsed: true }),
         Lifecycle: folder({
             delayMin: { value: 0, min: 0, max: 10, step: 0.1 },
@@ -58,6 +61,10 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
         uNormalScale: uniform(1.0),
         uHueShift: uniform(0.0),
         uNoiseScale: uniform(vec2(1, 1)),
+        uEmissiveColor: uniform(vec3(1.0, 0.8, 0.6)),
+        uEmissiveIntensity: uniform(0.5),
+        uFresnelPower: uniform(2.0),
+        uPetalDelay: uniform(0.0),
     }), [])
 
     // Compute uniforms (can have more settings in the future)
@@ -202,6 +209,11 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
         matUniforms.uNormalScale.value = config.normalScale
         matUniforms.uHueShift.value = config.hueShift
         matUniforms.uNoiseScale.value.set(config.noiseScale.x, config.noiseScale.y)
+        
+        const emissiveColor = new THREE.Color(config.emissiveColor)
+        matUniforms.uEmissiveColor.value.set(emissiveColor.r, emissiveColor.g, emissiveColor.b)
+        matUniforms.uEmissiveIntensity.value = config.emissiveIntensity
+        matUniforms.uFresnelPower.value = config.fresnelPower
     }, [config, matUniforms])
 
     // Update compute uniforms when config changes

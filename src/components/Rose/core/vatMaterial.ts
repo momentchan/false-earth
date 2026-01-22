@@ -31,7 +31,11 @@ import {
   clamp,
   acos,
   length,
-  If
+  If,
+  time,
+  positionWorld,
+  cameraPosition,
+  oneMinus
 } from "three/tsl";
 import { VATMeta } from "./types";
 import { TerrainUniforms } from "../../types";
@@ -59,6 +63,11 @@ export function createVATMaterial(
 ): THREE.MeshStandardNodeMaterial {
   const material = new THREE.MeshStandardNodeMaterial();
   material.side = THREE.DoubleSide;
+
+  const vColor = vertexColor(0).r;
+  const isPetal = step(abs(vColor.sub(0.7)), 0.05);
+  const isStem = step(abs(vColor.sub(0.0)), 0.05);
+  const isLeaf = step(abs(vColor.sub(1.0)), 0.05);
 
   const outline = texture(outlineTex, uv());
   // Get correct instance data
@@ -139,12 +148,12 @@ export function createVATMaterial(
     //   const axis = cross(up, tn);
     //   const dotProd = clamp(dot(up, tn), float(-1.0), float(1.0));
     //   const angle = acos(dotProd);
-      
+
     //   // Only rotate if slope is significant
     //   const axisLen = length(axis);
     //   const minAxisLen = float(0.001);
     //   const shouldRotate = axisLen.greaterThan(minAxisLen);
-      
+
     //   If(shouldRotate, () => {
     //     const axisNorm = normalize(axis);
     //     const rotated = rotateAxis(scaledOffset, axisNorm, angle);
@@ -165,26 +174,26 @@ export function createVATMaterial(
   })();
 
   // material.fragmentNode = Fn(() => {
-  //   // const dieOut = smoothstep(0., 1.0, smoothstep(1.0, 0.8, progress)); 
-  //   const dieOut = smoothstep(0.9, 0.8, progress); 
+  //   const u = mix(uv(0).x, uv(0).y, isPetal);
+  //   const s = smoothstep(0.0, 1, u);
+  //   const t = time.add(seed.mul(123.0)).mul(-0.5);
+  //   const d = smoothstep(0.3, 0.0, abs(u.sub(mix(-0.2, 1.2, fract(t))))).mul(s).mul(oneMinus(s));
 
-  //   return vec4(dieOut, 0.0, 0.0, 1.0);
+  //   return vec4(d, 0, 0.0, 1.0);
   // })();
+
 
 
   // Color processing with HSV shift
   material.colorNode = Fn(() => {
-    const vColor = vertexColor(0).r;
-    const isPetal = step(abs(vColor.sub(0.7)), 0.05);
-    const isStem = step(abs(vColor.sub(0.0)), 0.05);
-    const isLeaf = step(abs(vColor.sub(1.0)), 0.05);
+
 
     const n = remapClamp(mx_noise_float(uv().mul(uniforms.uNoiseScale)), 0.0, 1.0, 0.0, 1.0);
     const stemColor = mix(uniforms.uGreen, uniforms.uGreen2, n);
 
     let petalCol = texture(colorTex, uvCord).rgb;
 
-    const hueShift = seed.mul(float(0.02).add(smoothstep(float(0.6), float(1.0), progress).mul(0.03))).add(uniforms.uHueShift);//          .add(smoothstep(float(0.6), float(1.0), progress).mul(0.03))).add(uniforms.uHueShift);
+    const hueShift = seed.mul(float(0.0).add(smoothstep(float(0.6), float(1.0), progress).mul(0.03))).add(uniforms.uHueShift);//          .add(smoothstep(float(0.6), float(1.0), progress).mul(0.03))).add(uniforms.uHueShift);
     const valueShift = fract(seed.mul(25.0)).mul(1);
     petalCol = hsvShift(petalCol, vec3(hueShift, 0.0, valueShift));
     const darker = hsvShift(petalCol, vec3(0.0, 0.0, -0.1));
@@ -194,9 +203,9 @@ export function createVATMaterial(
       .add(stemColor.mul(isStem))
       .add(stemColor.mul(isLeaf));
 
-    const dieOut = smoothstep(0.95, 0.8, progress); 
+    const dieOut = smoothstep(0.95, 0.8, progress);
     finalColor.mulAssign(dieOut);
-    
+
     return vec4(finalColor, 1.0);
   })();
 
@@ -238,7 +247,35 @@ export function createVATMaterial(
     const mapN = texture(normalMapTex, uvCord).rgb.mul(2.0).sub(1.0);
     const finalNormal = vatNormalView
       .add(mapN.mul(uniforms.uNormalScale));
-    return  normalize(finalNormal);
+    return normalize(finalNormal);
+  })();
+
+
+  // Fresnel emissive effect
+  material.emissiveNode = Fn(() => {
+    // Get the final normal in view space
+    const mapN = texture(normalMapTex, uvCord).rgb.mul(2.0).sub(1.0);
+    const finalNormalView = normalize(vatNormalView.add(mapN.mul(uniforms.uNormalScale)));
+
+    // Calculate view direction (from fragment to camera in view space)
+    // viewDirection is already in view space and normalized
+    const viewDir = normalize(cameraPosition.sub(positionWorld));
+
+    // Fresnel factor: edges (grazing angles) have higher values
+    // Using 1 - dot(normal, view) for fresnel effect
+    const fresnelFactor = float(1.0).sub(dot(finalNormalView, viewDir).abs());
+
+    // Apply power curve for more control (higher power = sharper edge glow)
+    const fresnel = fresnelFactor.pow(uniforms.uFresnelPower);
+
+    // Apply fresnel to emissive
+    const u = mix(uv(0).x, uv(0).y, isPetal);
+    const speed = mix(-0.5, -1, fract(seed.mul(35.8)))
+    const s = smoothstep(0.0, 1, u);
+    const t = time.add(seed.mul(123.0)).mul(speed);
+    const d = smoothstep(0.3, 0.0, abs(u.sub(mix(-0.2, 1.2, fract(t))))).mul(s).mul(oneMinus(s)).mul(2.0);
+
+    return uniforms.uEmissiveColor.mul(d.add(fresnel)).mul(uniforms.uEmissiveIntensity);
   })();
 
   return material;

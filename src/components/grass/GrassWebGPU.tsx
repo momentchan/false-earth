@@ -57,7 +57,6 @@ export default function GrassWebGPU({ cullCamera }: GrassProps = {} as GrassProp
   const materialUniforms = useMemo(() => {
     const baseColorValue = new THREE.Color("#000000");
     const tipColorValue = new THREE.Color("#ffffff");
-    const groundColorValue = new THREE.Color("#1a3319");
 
     return {
       uTime: uniform(0.0),
@@ -72,7 +71,6 @@ export default function GrassWebGPU({ cullCamera }: GrassProps = {} as GrassProp
       uRimSoft: uniform(0.03),
       uBaseColor: uniform(vec3(baseColorValue.r, baseColorValue.g, baseColorValue.b)),
       uTipColor: uniform(vec3(tipColorValue.r, tipColorValue.g, tipColorValue.b)),
-      uGroundColor: uniform(vec3(groundColorValue.r, groundColorValue.g, groundColorValue.b)),
       uBladeSeedRange: uniform(vec2(0.95, 1.03)),
       uClumpSeedRange: uniform(vec2(0.9, 1.1)),
       uAOPower: uniform(0.6),
@@ -114,6 +112,8 @@ export default function GrassWebGPU({ cullCamera }: GrassProps = {} as GrassProp
       uWindFacing: uniform(0.6),
       // Culling Parameters
       uCullOffset: uniform(0.8),
+      // LOD Parameters
+      uLODNoiseScale: uniform(0.1), // Noise scale for smooth LOD transitions (0-1, default 10%)
       // Grid Parameters (for jitter calculation)
       uBladesPerAxis: uniform(64.0), // Number of blades along one axis (e.g. 64 means 64x64 = 4096 blades)
       uGrassAreaSize: uniform(40.0), // Total width/height of grass area where blades are distributed

@@ -31,6 +31,9 @@ export function updateComputeUniforms(uniforms: Record<string, any>, params: any
   // Culling parameters
   uniforms.uCullOffset.value = params.bladeHeightMax ?? 0.8
 
+  // LOD parameters
+  uniforms.uLODNoiseScale.value = params.lodNoiseScale ?? 0.1
+
   uniforms.uBladesPerAxis.value = DEFAULT_BLADES_PER_AXIS
   uniforms.uGrassAreaSize.value = DEFAULT_GRASS_AREA_SIZE
   uniforms.uGridCellSize.value = DEFAULT_GRASS_AREA_SIZE / DEFAULT_GRID_DIVISIONS
