@@ -28,6 +28,7 @@ export function GrassLOD({
   const { scene } = useThree();
   const terrainUniforms = useGameStore((state) => state.terrainUniforms);
   const waveStorageBuffer = useGameStore((state) => state.waveStorageBuffer);
+  const activeWaveCount = useGameStore((state) => state.activeWaveCount);
 
   const mesh = useMemo(() => {
     if (!grassData || !positions || !lodBuffer) {
@@ -74,6 +75,12 @@ export function GrassLOD({
     waveStorageBuffer,
     scene.environment,
   ]);
+
+  // Update active wave count uniform dynamically
+  useEffect(() => {
+    if (!mesh || !uniforms.uActiveWaveCount) return;
+    uniforms.uActiveWaveCount.value = activeWaveCount;
+  }, [mesh, uniforms, activeWaveCount]);
 
   // Update material properties
   useEffect(() => {

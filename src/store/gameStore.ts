@@ -22,6 +22,8 @@ interface GameState {
   setWindUniforms: (uniforms: WindUniforms | null) => void;
   waveStorageBuffer: THREE.StorageBufferAttribute | null;
   setWaveStorageBuffer: (buffer: THREE.StorageBufferAttribute | null) => void;
+  activeWaveCount: number;
+  setActiveWaveCount: (count: number) => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -44,4 +46,6 @@ export const useGameStore = create<GameState>((set) => ({
   
   waveStorageBuffer: null,
   setWaveStorageBuffer: (buffer) => set({ waveStorageBuffer: buffer }),
+  activeWaveCount: 0,
+  setActiveWaveCount: (count) => set({ activeWaveCount: count }),
 }));

@@ -109,6 +109,9 @@ export function createGrassMaterial(
   const waveBuffer = waveStorageBuffer
     ? storage(waveStorageBuffer, waveStructure, 16)
     : null;
+  
+  // Active wave count uniform (for optimizing shader loop)
+  const uActiveWaveCount = uniforms.uActiveWaveCount ?? uniform(float(0.0));
 
   material.positionNode = Fn(() => {
     const trueIndex = visibleIndicesBuffer.element(instanceIndex);
@@ -400,25 +403,28 @@ export function createGrassMaterial(
       const totalEmissive = float(0.0).toVar();
       const worldPosXZ = vec2(vWorldPos.x, vWorldPos.z);
 
-      Loop({ start: 0, end: 16 }, ({ i }) => {
+      // Loop only through active waves (array is compacted, active waves start at index 0)
+      Loop({ start: 0, end: uActiveWaveCount }, ({ i }) => {
         const waveData = waveBuffer.element(i);
         const waveCenter = vec2(waveData.get('x'), waveData.get('z'));
         const startTime = waveData.get('startTime');
         const maxRadius = waveData.get('maxRadius');
         const lifetime = waveData.get('lifetime');
 
-        const age = uniforms.uTime.sub(startTime)
-        const progress = age.div(lifetime);
+        // Skip if wave data is invalid (maxRadius > 0 is a simple validity check)
+        If(maxRadius.greaterThan(float(0.0)), () => {
+          const age = uniforms.uTime.sub(startTime)
+          const progress = age.div(lifetime);
 
-        If(progress.lessThan(float(1.0)), () => {
+          If(progress.lessThan(float(1.0)), () => {
+            const currentRadius = maxRadius.mul(progress);
 
-          const currentRadius = maxRadius.mul(progress);
+            const ring = maxRadius.mul(0.2)
+            const w = smoothstep(ring, 0, abs(distance(worldPosXZ, waveCenter).sub(currentRadius)))
+            const fade = smoothstep(float(1.0), float(0.5), progress).mul(smoothstep(float(0.0), float(0.1), progress));
 
-          const ring = maxRadius.mul(0.2)
-          const w = smoothstep(ring, 0, abs(distance(worldPosXZ, waveCenter).sub(currentRadius)))
-          const fade = smoothstep(float(1.0), float(0.5), progress).mul(smoothstep(float(0.0), float(0.1), progress));
-
-          totalEmissive.addAssign(w.mul(fade));
+            totalEmissive.addAssign(w.mul(fade));
+          })
         })
 
       });

@@ -82,7 +82,8 @@ export default function GrassWebGPU({ cullCamera }: GrassProps = {} as GrassProp
       uCharacterWorldPos: uniform(new THREE.Vector3(0, 0, 0)),
       uCharacterPushRadius: uniform(0.8),
       uCharacterPushAmount: uniform(0.3),
-      uCharacterFlattenAmount: uniform(0.5)
+      uCharacterFlattenAmount: uniform(0.5),
+      uActiveWaveCount: uniform(0.0)
     };
   }, []);
 

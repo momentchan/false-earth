@@ -11,6 +11,7 @@ export function useCosmicShockwaves() {
   const { clock } = useThree();
 
   const setWaveStorageBuffer = useGameStore((state) => state.setWaveStorageBuffer);
+  const setActiveWaveCount = useGameStore((state) => state.setActiveWaveCount);
   
   // 1. Create data buffer
   const waveDataArray = useMemo(() => new Float32Array(MAX_WAVES * DATA_PER_WAVE), []);
@@ -54,19 +55,32 @@ export function useCosmicShockwaves() {
     // Clear array (or only overwrite needed region)
     waveDataArray.fill(0);
 
-    // Update data to Array
-    activeWaves.current.forEach((wave, i) => {
-      const index = i * DATA_PER_WAVE;
-      
+    // Filter out expired waves - this compacts the array so active waves are contiguous
+    activeWaves.current = activeWaves.current.filter(wave => {
       const age = now - wave.startTime;
-      if (age > wave.lifetime) return;
+      return age <= wave.lifetime;
+    });
 
+    // Update data to Array - active waves are written contiguously starting from index 0
+    // This allows the shader to loop only through activeWaveCount instead of all 16
+    let activeCount = 0;
+    for (let i = 0; i < activeWaves.current.length; i++) {
+      const wave = activeWaves.current[i];
+      const age = now - wave.startTime;
+      
+      // Early break if we find an expired wave (shouldn't happen after filter, but safety check)
+      if (age > wave.lifetime) break;
+
+      const index = activeCount * DATA_PER_WAVE;
       waveDataArray[index + 0] = wave.pos.x;
       waveDataArray[index + 1] = wave.pos.y;
       waveDataArray[index + 2] = wave.startTime;
       waveDataArray[index + 3] = wave.maxRadius;
       waveDataArray[index + 4] = wave.lifetime;
-    });
+      activeCount++;
+    }
+    
+    setActiveWaveCount(activeCount);
     waveStorageBuffer.needsUpdate = true;
   });
 
