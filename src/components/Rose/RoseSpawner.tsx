@@ -19,6 +19,8 @@ export function RoseSpawner({
   const lastSpawnPos = useRef(new THREE.Vector3(9999, 9999, 9999));
   const totalDistance = useRef(0);
   const characterRef = useGameStore((state) => state.characterRef);
+  const forwardWorld = useRef(new THREE.Vector3());
+  const rotationMatrix = useRef(new THREE.Matrix3());
 
   const [config] = useControls('Rose.Spawner', () => ({
     Wave: folder({
@@ -27,6 +29,9 @@ export function RoseSpawner({
       waveFrequency: { value: 0.2, min: 0.1, max: 10, step: 0.1 }, // Base frequency (cycles per unit distance)
       waveHarmonics: { value: 3, min: 1, max: 8, step: 1 }, // Number of harmonic waves to add
       waveHarmonicStrength: { value: 0.7, min: 0, max: 1, step: 0.05 }, // Strength of harmonics relative to base
+    }),
+    Fan: folder({
+      fanSpread: { value: Math.PI / 4, min: 0, max: Math.PI, step: 0.1 }, // Fan spread in radians (default 45 degrees)
     }),
   }), { collapsed: true });
 
@@ -58,10 +63,21 @@ export function RoseSpawner({
       const normalized = (waveValue + 1) / 2; // Normalize from [-1, 1] to [0, 1]
       const scatterRadius = config.waveLow + (config.waveHigh - config.waveLow) * normalized;
 
+      // Extract character's facing direction from rotation matrix
+      // Forward direction in Three.js local space is (0, 0, -1)
+      rotationMatrix.current.setFromMatrix4(character.matrixWorld);
+      forwardWorld.current.set(0, 0, -1);
+      forwardWorld.current.applyMatrix3(rotationMatrix.current);
+      forwardWorld.current.normalize();
+      
+      // Calculate facing angle in radians (angle in XZ plane)
+      // atan2(z, x) gives angle from positive X axis (0 = right, PI/2 = forward, PI = left, -PI/2 = back)
+      const facingAngle = Math.atan2(forwardWorld.current.z, forwardWorld.current.x);
+
       // Use batch spawning for efficient parallel GPU processing
       // Clamp spawn count to valid range (1-64)
       const count = Math.max(1, Math.min(spawnCount, 64));
-      rose.spawn(currentPos, count, scatterRadius);
+      rose.spawn(currentPos, count, scatterRadius, facingAngle, config.fanSpread);
       lastSpawnPos.current.copy(currentPos);
     }
   });

@@ -14,13 +14,14 @@ import { useGameStore } from "../../store/gameStore";
 
 // Define API exposed to parent component
 export type RoseHandle = {
-    spawn: (pos: THREE.Vector3, count?: number, radius?: number) => void
+    spawn: (pos: THREE.Vector3, count?: number, radius?: number, facingAngle?: number, fanSpread?: number) => void
 }
 
 const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
     const gl = useThree((state) => state.gl)
     const { scene, posTex, nrmTex, meta, isLoaded } = useVATPreloader('/vat/Rose_meta.json')
     const groupRef = useRef<THREE.Group>(null)
+    const matRef = useRef<THREE.MeshStandardNodeMaterial>(null)
 
     const [config] = useControls('Rose', () => ({
         Render: folder({
@@ -28,9 +29,11 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
             green2: { value: '#699555' },
             scaleMin: { value: 5, min: 0, max: 20, step: 0.1 },
             scaleMax: { value: 10, min: 0, max: 20, step: 0.1 },
-            normalScale: { value: 3, min: 0, max: 10, step: 0.1 },
+            normalScale: { value: 1.2, min: 0, max: 10, step: 0.1 },
             hueShift: { value: 0, min: 0, max: 1, step: 0.01 },
             noiseScale: { value: { x: 1, y: 100 }, min: 0, max: 100, step: 0.1 },
+            metalness: { value: 0, min: 0, max: 1, step: 0.01 },
+            roughness: { value: 0.7, min: 0, max: 1, step: 0.01 },
         }, { collapsed: true }),
         Lifecycle: folder({
             delayMin: { value: 0, min: 0, max: 10, step: 0.1 },
@@ -80,6 +83,8 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
         uSpawnPos: uniform(vec3(0)),
         uSpawnCount: uniform(0),    // Number of instances to spawn (0-64)
         uSpawnRadius: uniform(0.5), // Scatter radius around spawn position
+        uFacingAngle: uniform(0.0),  // Center angle of the fan (in radians)
+        uFanSpread: uniform(Math.PI), // Half-angle spread of the fan (in radians, default PI = full circle)
     }), [])
 
     const spawnStorage = useMemo(() => {
@@ -92,11 +97,13 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
 
     // Expose spawn method to parent component
     useImperativeHandle(ref, () => ({
-        spawn: (pos: THREE.Vector3, amount: number = 1, radius: number = 0.5) => {
+        spawn: (pos: THREE.Vector3, amount: number = 1, radius: number = 0.5, facingAngle: number = 0, fanSpread: number = Math.PI) => {
             // Directly write to uniform, bypassing React State
             spawnUniforms.uSpawnPos.value.copy(pos);
             spawnUniforms.uSpawnCount.value = Math.min(amount, 64); // Clamp to max batch size
             spawnUniforms.uSpawnRadius.value = radius;
+            spawnUniforms.uFacingAngle.value = facingAngle;
+            spawnUniforms.uFanSpread.value = fanSpread;
         }
     }), [spawnUniforms])
 
@@ -168,6 +175,8 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
             terrainUniforms || undefined,
             windUniforms || undefined,
         )
+        matRef.current = mat
+
         const mesh = new THREE.Mesh(geometry, mat)
         mesh.count = count
         mesh.frustumCulled = false
@@ -206,6 +215,14 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
         computeUniforms.uDieMin.value = config.dieMin
         computeUniforms.uDieMax.value = config.dieMax
     }, [config, computeUniforms])
+
+
+    useEffect(() => {
+        if (!matRef.current) return
+        matRef.current.metalness = config.metalness
+        matRef.current.roughness = config.roughness
+    }, [config.metalness, config.roughness])
+
 
     useFrame(() => {
         const renderer = gl as unknown as WebGPURenderer

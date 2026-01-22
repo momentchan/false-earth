@@ -165,9 +165,10 @@ export function createVATMaterial(
   })();
 
   // material.fragmentNode = Fn(() => {
-  //   const vatPos = texture(posTex, sampleUV).rgb;
-  //   const heightFactor = smoothstep(float(0), float(0.5), vatPos.y.abs());
-  //   return vec4(heightFactor, 0.0, 0.0, 1.0);
+  //   // const dieOut = smoothstep(0., 1.0, smoothstep(1.0, 0.8, progress)); 
+  //   const dieOut = smoothstep(0.9, 0.8, progress); 
+
+  //   return vec4(dieOut, 0.0, 0.0, 1.0);
   // })();
 
 
@@ -183,8 +184,8 @@ export function createVATMaterial(
 
     let petalCol = texture(colorTex, uvCord).rgb;
 
-    const hueShift = seed.mul(float(0.1).add(smoothstep(float(0.6), float(1.0), progress).mul(0.03))).add(uniforms.uHueShift);//          .add(smoothstep(float(0.6), float(1.0), progress).mul(0.03))).add(uniforms.uHueShift);
-    const valueShift = fract(seed.mul(25.0)).mul(-0.1);
+    const hueShift = seed.mul(float(0.02).add(smoothstep(float(0.6), float(1.0), progress).mul(0.03))).add(uniforms.uHueShift);//          .add(smoothstep(float(0.6), float(1.0), progress).mul(0.03))).add(uniforms.uHueShift);
+    const valueShift = fract(seed.mul(25.0)).mul(1);
     petalCol = hsvShift(petalCol, vec3(hueShift, 0.0, valueShift));
     const darker = hsvShift(petalCol, vec3(0.0, 0.0, -0.1));
     petalCol = mix(darker, petalCol, outline.rgb);
@@ -193,7 +194,7 @@ export function createVATMaterial(
       .add(stemColor.mul(isStem))
       .add(stemColor.mul(isLeaf));
 
-    const dieOut = mix(0.1, 1.0, smoothstep(1.0, 0.6, progress)); 
+    const dieOut = smoothstep(0.95, 0.8, progress); 
     finalColor.mulAssign(dieOut);
     
     return vec4(finalColor, 1.0);
@@ -237,7 +238,7 @@ export function createVATMaterial(
     const mapN = texture(normalMapTex, uvCord).rgb.mul(2.0).sub(1.0);
     const finalNormal = vatNormalView
       .add(mapN.mul(uniforms.uNormalScale));
-    return finalNormal;
+    return  normalize(finalNormal);
   })();
 
   return material;

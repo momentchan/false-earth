@@ -106,7 +106,7 @@ export function createResetCompute(drawStorage: ReturnType<typeof storage>, inde
 export function createSpawnCompute(
     vatData: ReturnType<typeof instancedArray>,
     spawnStorage: ReturnType<typeof storage>, // use to record the current index of the rose
-    uniforms: { uSpawnPos: any, uSpawnCount: any, uSpawnRadius: any },
+    uniforms: { uSpawnPos: any, uSpawnCount: any, uSpawnRadius: any, uFacingAngle: any, uFanSpread: any },
     maxCount: number
 ) {
     // Define a max batch size (e.g., spawn up to 64 flowers per frame)
@@ -121,14 +121,18 @@ export function createSpawnCompute(
             
             // 2. Generate a unique seed for this specific instance
             // We mix time + instanceIndex to ensure uniqueness within the same frame
-            const uniqueSeed = fract(float(time).add(float(instanceIndex).mul(0.123)).mul(123.45));
+            const seed = fract(fract(float(time).add(float(instanceIndex).mul(123.45))));
+            const seed2 = fract(seed.mul(87.65));
             
             const instance = vatData.element(headIndex);
 
-            // 3. Add random offset to position
-            // Uses the unique seed to scatter flowers around uSpawnPos
-            const angle = uniqueSeed.mul(PI.mul(2.0));
-            const radius = fract(uniqueSeed.mul(43.75)).mul(uniforms.uSpawnRadius);
+            // 3. Add random offset to position within fan range
+            // Uses the unique seed to scatter flowers around uSpawnPos in a fan shape
+            // Map seed2 from [0, 1] to [uFacingAngle - uFanSpread, uFacingAngle + uFanSpread]
+            const fanRange = uniforms.uFanSpread.mul(2.0); // Total spread angle
+            const angleOffset = seed2.mul(fanRange).sub(uniforms.uFanSpread); // [-uFanSpread, +uFanSpread]
+            const angle = uniforms.uFacingAngle.add(angleOffset);
+            const radius = fract(seed2.mul(43.75)).mul(uniforms.uSpawnRadius);
             const offsetX = cos(angle).mul(radius);
             const offsetZ = sin(angle).mul(radius);
             const randomPos = vec3(
@@ -141,7 +145,7 @@ export function createSpawnCompute(
             instance.get('isActive').assign(1.0);
             instance.get('frame').assign(0.0);
             instance.get('startTime').assign(time);
-            instance.get('seed').assign(uniqueSeed);
+            instance.get('seed').assign(seed);
             instance.get('progress').assign(0.0);
         })
     });
