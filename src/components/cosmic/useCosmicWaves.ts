@@ -3,11 +3,22 @@ import * as THREE from 'three/webgpu';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '../../store/gameStore';
 import { useThree } from '@react-three/fiber';
+import { struct } from 'three/tsl';
+
+// Wave data structure for shockwave effects
+// Each wave contains: x position, z position, start time, max radius, lifetime
+export const waveStructure = struct({
+  x: 'float',
+  z: 'float',
+  startTime: 'float',
+  maxRadius: 'float',
+  lifetime: 'float',
+});
 
 const MAX_WAVES = 16; // Maximum number of waves that can exist simultaneously
 const DATA_PER_WAVE = 5; // x, z, startTime, maxRadius, lifetime
 
-export function useCosmicShockwaves() {
+export function useCosmicWaves() {
   const { clock } = useThree();
 
   const setWaveStorageBuffer = useGameStore((state) => state.setWaveStorageBuffer);

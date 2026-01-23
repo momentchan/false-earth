@@ -1,15 +1,18 @@
-import { useEffect, useMemo } from 'react';
+// src/components/cosmic/CosmicSystem.tsx
+// Orchestrator component that coordinates beams and waves
+import { useEffect, useMemo, useRef } from 'react';
 import { useControls } from 'leva';
 import * as THREE from 'three/webgpu';
-import { useCosmicShockwaves } from "./useCosmicShockwaves";
+import { useCosmicWaves } from "./useCosmicWaves";
 import { MathUtils } from 'three';
 import { useGameStore } from '../../store/gameStore';
+import { CosmicBeams, CosmicBeamsRef } from './CosmicBeams';
 
-export function Waves() {
-    const { triggerShockwave } = useCosmicShockwaves();
+export function CosmicSystem() {
+    const { triggerShockwave } = useCosmicWaves();
     const characterRef = useGameStore((state) => state.characterRef);
+    const beamsRef = useRef<CosmicBeamsRef>(null);
     
-    // Temporary vector to get character position
     const characterPos = useMemo(() => new THREE.Vector3(), []);
 
     const [waveParams] = useControls('Waves', () => ({
@@ -21,33 +24,36 @@ export function Waves() {
         donutMaxRadius: { value: 15.0, min: 1.0, max: 50.0, step: 0.5 },
     }), { collapsed: true });
 
-    // Trigger wave when Z key is pressed
+    // Handle keypress to trigger beam, then wave on completion
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key.toLowerCase() === 'z') {
                 // Get character world position
                 if (!characterRef?.current) {
-                    console.warn('Character ref not available, spawning wave at origin');
+                    console.warn('Character ref not available, spawning beam at origin');
                     characterPos.set(0, 0, 0);
                 } else {
                     characterRef.current.getWorldPosition(characterPos);
                 }
 
-                // Generate random position in donut shape around character
-                // Donut: random angle + random distance between min/max radius
-                const angle = Math.random() * Math.PI * 2; // Random angle 0 to 2π
+                const angle = Math.random() * Math.PI * 2;
                 const distance = MathUtils.lerp(waveParams.donutMinRadius, waveParams.donutMaxRadius, Math.random());
                 
                 const position = new THREE.Vector3(
-                    characterPos.x + Math.cos(angle) * distance, // x: character x + offset
-                    0, // y: ground level
-                    characterPos.z + Math.sin(angle) * distance  // z: character z + offset
+                    characterPos.x + Math.cos(angle) * distance,
+                    0,
+                    characterPos.z + Math.sin(angle) * distance
                 );
 
-                // Random radius and lifetime within min/max ranges
-                const radius = MathUtils.lerp(waveParams.radiusMin, waveParams.radiusMax, Math.random());
-                const lifetime = MathUtils.lerp(waveParams.lifetimeMin, waveParams.lifetimeMax, Math.random());
-                triggerShockwave(position, radius, lifetime);
+                // Trigger beam, and when it completes, trigger shockwave
+                beamsRef.current?.triggerBeam(position, (beamPosition) => {
+                    // Calculate wave parameters when beam hits the ground
+                    const radius = MathUtils.lerp(waveParams.radiusMin, waveParams.radiusMax, Math.random());
+                    const lifetime = MathUtils.lerp(waveParams.lifetimeMin, waveParams.lifetimeMax, Math.random());
+                    
+                    // Trigger shockwave at impact position
+                    triggerShockwave(beamPosition, radius, lifetime);
+                });
             }
         };
 
@@ -57,5 +63,5 @@ export function Waves() {
         };
     }, [triggerShockwave, waveParams, characterRef, characterPos]);
 
-    return null;
+    return <CosmicBeams ref={beamsRef} />;
 }

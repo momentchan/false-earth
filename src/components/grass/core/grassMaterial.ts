@@ -55,7 +55,7 @@ import {
   applyCharacterPush,
   createWaveLogic,
 } from "./shaderHelpers";
-import { waveStructure } from "../../wave/constants";
+import { waveStructure } from "../../cosmic/useCosmicWaves";
 
 /**
  * Creates a grass material with vertex shader that scales blade geometry

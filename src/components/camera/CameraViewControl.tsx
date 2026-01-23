@@ -190,7 +190,7 @@ export function CameraViewControl({ boneName = 'head' }: Props) {
       makeDefault
       enabled={cameraMode !== CameraMode.FPV}
       minDistance={2}
-      maxDistance={20}
+      // maxDistance={20}
       // minPolarAngle={Math.PI / 6}
       maxPolarAngle={Math.PI / 2}
       smoothTime={0.1}

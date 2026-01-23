@@ -3,7 +3,7 @@ import { useControls } from "leva";
 import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three/webgpu";
 import { WebGPURenderer } from "three/webgpu";
-import { pass, uniform } from "three/tsl";
+import { float, pass, smoothstep, uniform } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { dof } from "three/addons/tsl/display/DepthOfFieldNode.js";
 import { smaa } from "three/addons/tsl/display/SMAANode.js";
@@ -16,6 +16,8 @@ export default function Effects() {
     const bloomPassRef = useRef<any>(null);
     const smaaPassRef = useRef<any>(null);
     const { gl, scene, camera } = useThree();
+
+    const beamCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
 
     // Temporary vectors for calculation to avoid GC
     const camPos = useMemo(() => new THREE.Vector3(), []);
@@ -37,11 +39,10 @@ export default function Effects() {
         exposure: { value: 1.1, min: 0.1, max: 2, step: 0.01 }
     }, { collapsed: true });
 
-    // DoF settings for TPS mode
     const dofParamsTPS = useControls('Effects.DoF.TPS', {
         enabled: { value: true, label: 'Enable Depth of Field' },
         autofocus: { value: true, label: 'Auto Focus Character' },
-        focusDistance: { value: 3, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.TPS.autofocus') }, 
+        focusDistance: { value: 3, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.TPS.autofocus') },
         focalLength: { value: 25.0, min: 0.01, max: 100, step: 0.1 },
         bokehScale: { value: 5, min: 0.0, max: 10.0, step: 0.1 }
     }, { collapsed: true });
@@ -49,17 +50,15 @@ export default function Effects() {
     const dofParamsFREE = useControls('Effects.DoF.FREE', {
         enabled: { value: true, label: 'Enable Depth of Field' },
         autofocus: { value: false, label: 'Auto Focus Character' },
-        focusDistance: { value: 5, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.FREE.autofocus') }, 
+        focusDistance: { value: 5, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.FREE.autofocus') },
         focalLength: { value: 10.0, min: 0.01, max: 100, step: 0.1 },
         bokehScale: { value: 5, min: 0.0, max: 10.0, step: 0.1 }
     }, { collapsed: true });
- // DoF settings for FREE mode
-   
-    // DoF settings for FPV mode
+
     const dofParamsFPV = useControls('Effects.DoF.FPV', {
         enabled: { value: true, label: 'Enable Depth of Field' },
         autofocus: { value: false, label: 'Auto Focus Character' },
-        focusDistance: { value: 10, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.FPV.autofocus') }, 
+        focusDistance: { value: 10, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.FPV.autofocus') },
         focalLength: { value: 50.0, min: 0.01, max: 100, step: 0.1 },
         bokehScale: { value: 3, min: 0.0, max: 10.0, step: 0.1 }
     }, { collapsed: true });
@@ -77,7 +76,7 @@ export default function Effects() {
                 return dofParamsTPS;
         }
     }, [cameraMode, dofParamsTPS, dofParamsFREE, dofParamsFPV]);
-    
+
 
     // Use uniforms for DoF parameters to avoid rebuilding PostProcessing
     // Initialize with current mode's values
@@ -103,17 +102,31 @@ export default function Effects() {
         }
 
         const renderer = gl as WebGPURenderer;
-        
+
         // Initialize PostProcessing
         const postProcessing = new THREE.PostProcessing(renderer);
         postProcessingRef.current = postProcessing;
 
-        // Create scene pass (color and depth)
+        // layer mask        
+        camera.layers.enable(0);
+        camera.layers.disable(1);
+
+        beamCamera.layers.disableAll();
+        beamCamera.layers.enable(1);
+
+        beamCamera.copy(camera);
+
+        // create render passes
         const scenePass = pass(scene, camera);
         const scenePassColor = scenePass.getTextureNode('output');
         const scenePassDepth = scenePass.getViewZNode();
 
-        // Configure Tone Mapping on the renderer
+        // beam pass
+        const beamPass = pass(scene, beamCamera);
+        const beamPassColor = beamPass.getTextureNode('output');
+        const beamPassDepth = beamPass.getViewZNode();
+
+        // tone mapping
         if (toneMappingParams.enabled) {
             renderer.toneMapping = THREE.ReinhardToneMapping;
             renderer.toneMappingExposure = Math.pow(toneMappingParams.exposure, 4.0);
@@ -121,13 +134,12 @@ export default function Effects() {
             renderer.toneMapping = THREE.NoToneMapping;
         }
 
-        // Build effect chain: Scene -> DoF -> Bloom
+        // tsl node compositing chain
+
         let finalNode: any = scenePassColor;
 
-        // --- DoF Effect ---
+        // apply dof (only to scene layer)
         if (dofParams.enabled) {
-            // Use dof node
-            // Parameters: (ColorNode, DepthNode, FocusDistance, FocalLength, BokehScale)
             const dofNode = dof(
                 scenePassColor,
                 scenePassDepth,
@@ -136,36 +148,36 @@ export default function Effects() {
                 uBokehScale.current
             );
             dofPassRef.current = dofNode;
-            
-            // In newer TSL versions, dofNode output is already composited
             finalNode = dofNode;
         }
 
-        // --- Bloom Effect ---
+        // add beams
+        const depthDiff = beamPassDepth.sub(scenePassDepth);
+        const occlusionFactor = smoothstep(float(0), float(10), depthDiff);
+        const beamColor = beamPassColor.mul(occlusionFactor);
+
+        finalNode = finalNode.add(beamColor);
+
+        // apply bloom (to entire composition)
         if (bloomParams.enabled) {
-            // Pass DoF result into Bloom, so bokeh highlights will also glow
             const bloomNode = bloom(finalNode);
             bloomPassRef.current = bloomNode;
-            
-            // Set parameters
+
             bloomNode.threshold.value = bloomParams.threshold;
             bloomNode.strength.value = bloomParams.strength;
             bloomNode.radius.value = bloomParams.radius;
 
-            // Blend Bloom
-            // @ts-ignore - add operation returns compatible node type
             finalNode = finalNode.add(bloomNode);
         }
 
-        // --- SMAA Effect (applied at the end) ---
+        // smaa (anti-aliasing)
         if (smaaParams.enabled) {
             const smaaNode = smaa(finalNode);
             smaaPassRef.current = smaaNode;
             finalNode = smaaNode;
         }
 
-        // Set output
-        // @ts-ignore - finalNode is compatible with outputNode type
+        // set output
         postProcessing.outputNode = finalNode;
 
         return () => {
@@ -174,8 +186,10 @@ export default function Effects() {
             }
             bloomPassRef.current = null;
             smaaPassRef.current = null;
+            // Restore main camera settings on cleanup to avoid affecting other components
+            camera.layers.enableAll();
         };
-    }, [gl, scene, camera, smaaParams.enabled, bloomParams.enabled, dofParams.enabled, toneMappingParams.enabled]);
+    }, [gl, scene, camera, smaaParams.enabled, bloomParams.enabled, dofParams.enabled, toneMappingParams.enabled, beamCamera]);
 
     // Update Bloom Uniforms efficiently
     useEffect(() => {
@@ -221,16 +235,26 @@ export default function Effects() {
         if (dofParams.enabled && dofParams.autofocus && characterRef?.current) {
             // Get camera world position
             camera.getWorldPosition(camPos);
-            
+
             // Get character world position from ref
             characterRef.current.getWorldPosition(characterPos);
-            
+
             // Calculate distance from camera to character position
             const dist = camPos.distanceTo(characterPos);
-            
+
             // Update the uniform directly
             uFocusDistance.current.value = dist;
         }
+
+        // Sync cameras
+        // Copy main camera parameters (position, rotation, FOV) to beam camera every frame
+        // Ensures both layers are perfectly aligned
+        beamCamera.copy(camera);
+
+        // Force layer settings again (prevent other code from interfering)
+        camera.layers.disable(1);
+        beamCamera.layers.disableAll();
+        beamCamera.layers.enable(1);
 
         if (postProcessingRef.current) {
             postProcessingRef.current.render();

@@ -14,8 +14,8 @@ import { Stars } from "../components/background/Stars";
 import { useGameStore } from "../store/gameStore";
 import { CameraViewControl } from "../components/camera/CameraViewControl";
 import Rose, { RoseHandle } from "../components/Rose/Rose";
-import { RoseSpawner } from "../components/Rose/RoseSpawner";
-import { Waves } from "../components/wave/Waves";
+import { CosmicSystem } from "../components/cosmic/CosmicSystem";
+
 export default function App() {
     const roseRef = useRef<RoseHandle>(null)
     // const { active, progress, errors, item, loaded, total } = useProgress()
@@ -61,7 +61,12 @@ export default function App() {
                     ...canvas as any,
                     powerPreference: "high-performance",
                     antialias: true,
+                    alpha: true,
                 });
+                renderer.setClearColor('#000000');
+                renderer.autoClear = true;
+
+                
                 return renderer.init().then(() => renderer);
             }}
             dpr={[1, 2]}
@@ -69,7 +74,7 @@ export default function App() {
         >
             <Suspense fallback={null}>
 
-                <color attach="background" args={['#000000']} />
+                {/* <color attach="background" args={['#000000']} /> */}
 
                 <CameraViewControl />
 
@@ -80,13 +85,13 @@ export default function App() {
                 <DirectionalLight />
                 <Background />
                 <Stars />
-                <Waves />
+                <CosmicSystem />
 
 
                 <Terrain />
                 <Wind />
-                <Rose ref={roseRef} count={2000} />
-                <RoseSpawner roseRef={roseRef} spawnCount={32} />
+                {/* <Rose ref={roseRef} count={2000} /> */}
+                {/* <RoseSpawner roseRef={roseRef} spawnCount={32} /> */}
                 <GrassWebGPU />
                 <Character position={[0, 0, 0]} scale={1} />
 
