@@ -7,7 +7,7 @@ import { float, pass, smoothstep, uniform } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { dof } from "three/addons/tsl/display/DepthOfFieldNode.js";
 import { smaa } from "three/addons/tsl/display/SMAANode.js";
-import { useGameStore, CameraMode } from "../store/gameStore";
+import { useGameStore, CameraMode } from "../core/store/gameStore";
 
 export default function Effects() {
     const cameraMode = useGameStore((state) => state.cameraMode);

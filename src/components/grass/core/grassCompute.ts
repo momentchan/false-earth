@@ -34,8 +34,8 @@ import {
   mx_noise_float,
   abs,
 } from "three/tsl";
-import type { LODBufferConfig } from "./types";
-import { safeNormalize, normalizeAngle, calculateWindStrength, applyWindFacingAndNormalize } from "./windHelpers";
+import type { LODBufferConfig } from "./config";
+import { safeNormalize, normalizeAngle, calculateWindStrength, applyWindFacingAndNormalize } from "../../../core/shaders/windHelpers";
 
 export function createGrassCompute(
   grassData: ReturnType<typeof instancedArray>,

@@ -6,9 +6,7 @@ import * as THREE from "three/webgpu";
 import { createCosmicBeamMaterial } from "./CosmicBeamMaterial";
 import gsap from "gsap";
 
-const MAX_BEAMS = 20;
-const BEAM_HEIGHT = 20; // Beam length
-const DROP_HEIGHT = 50; // Height from which beam drops
+import { MAX_BEAMS, BEAM_HEIGHT, DROP_HEIGHT } from './config';
 
 export interface CosmicBeamsRef {
   triggerBeam: (position: THREE.Vector3, onHit?: (position: THREE.Vector3) => void) => void;

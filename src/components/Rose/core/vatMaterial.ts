@@ -37,11 +37,11 @@ import {
   cameraPosition,
   oneMinus
 } from "three/tsl";
-import { VATMeta } from "./types";
-import { TerrainUniforms } from "../../types";
-import { getTerrainHeight, getTerrainNormal, rotateAxis } from "../../terrain/terrainHelpers";
-import { calculateWindStrength, safeNormalize } from "../../grass/core/windHelpers";
-import { WindUniforms } from "../../wind/Wind";
+import { VATMeta } from "./config";
+import { TerrainUniforms } from "../../../core/types";
+import { getTerrainHeight, getTerrainNormal, rotateAxis } from "../../../core/shaders/terrainHelpers";
+import { calculateWindStrength, safeNormalize } from "../../../core/shaders/windHelpers";
+import { WindUniforms } from "../../../core/types";
 
 /**
  * Simple VAT node material based on GLSL shader

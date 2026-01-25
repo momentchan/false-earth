@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu'
-import { DEFAULT_BLADES_PER_AXIS, DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS } from './constants'
+import { DEFAULT_BLADES_PER_AXIS, DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS } from './config'
 
 /**
  * Updates compute shader uniforms from grass parameters

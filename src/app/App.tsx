@@ -11,7 +11,7 @@ import Effects from "../components/Effects";
 import { Character } from "../components/character";
 import { Background } from "../components/background/Background";
 import { Stars } from "../components/background/Stars";
-import { useGameStore } from "../store/gameStore";
+import { useGameStore } from "../core/store/gameStore";
 import { CameraViewControl } from "../components/camera/CameraViewControl";
 import Rose, { RoseHandle } from "../components/Rose/Rose";
 import { CosmicSystem } from "../components/cosmic/CosmicSystem";

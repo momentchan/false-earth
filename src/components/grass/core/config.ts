@@ -2,6 +2,9 @@
 // Constants
 // ============================================================================
 import { struct } from 'three/tsl'
+import { instancedArray, storage } from 'three/tsl'
+import * as THREE from 'three/webgpu'
+import { TerrainUniforms } from '../../../core/types'
 
 export const DEFAULT_BLADES_PER_AXIS = 1024;
 export const DEFAULT_GRASS_AREA_SIZE = 80;
@@ -70,3 +73,36 @@ export const drawIndirectStructure = struct({
   firstInstance: 'uint',
   offset: 'uint', // For non-indexed: offset, for indexed: baseVertex
 })
+
+// ============================================================================
+// Types
+// ============================================================================
+export interface TerrainParams {
+  amplitude: number
+  frequency: number
+  seed: number
+  color: string
+}
+
+export interface GrassProps {
+  cullCamera?: THREE.PerspectiveCamera; // Camera used for culling calculation (separate from render camera)
+  trailTexture?: THREE.StorageTexture | null; // Character trail texture for flattening grass
+}
+
+export interface LODSegmentsConfig {
+  segments: number
+  minDistance: number
+  maxDistance: number
+  debugColor?: [number, number, number] // RGB color for LOD debug visualization
+}
+
+export interface LODBufferConfig {
+  segments: number
+  indices: ReturnType<typeof instancedArray>
+  drawBuffer: THREE.IndirectStorageBufferAttribute
+  drawStorage: ReturnType<typeof storage>
+  vertexCount: number
+  minDistance: number
+  maxDistance: number
+  debugColor?: [number, number, number] // RGB color for LOD debug visualization
+}

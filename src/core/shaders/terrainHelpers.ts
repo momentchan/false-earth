@@ -81,5 +81,3 @@ export const rotateAxis = Fn(([v, axis, angle]: [any, any, any]) => {
     .add(v.sub(proj).mul(cos(angle)))
     .add(cross(axisNorm, v).mul(sin(angle)));
 });
-
-

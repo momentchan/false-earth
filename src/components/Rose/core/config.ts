@@ -1,5 +1,8 @@
-
 import { struct } from 'three/tsl'
+
+// ============================================================================
+// Types
+// ============================================================================
 
 // Core VAT metadata interface
 // New format with textureWidth, textureHeight, textures, padding, etc.
@@ -17,6 +20,10 @@ export interface VATMeta {
   fps?: number
   storeDelta?: boolean
 }
+
+// ============================================================================
+// Structures
+// ============================================================================
 
 // Shared VAT instance layout
 export const vatStructure = struct({

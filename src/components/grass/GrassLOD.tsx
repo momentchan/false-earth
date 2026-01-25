@@ -3,9 +3,9 @@ import { useThree } from "@react-three/fiber";
 import * as THREE from "three/webgpu";
 import { createBladeGeometry, createGrassData, createPositions } from "./core/grassGeometry";
 import { createGrassMaterial } from "./core/grassMaterial";
-import { DEFAULT_BLADES_PER_AXIS } from "./core/constants";
-import type { LODBufferConfig } from "./core/types";
-import { useGameStore } from "../../store/gameStore";
+import { DEFAULT_BLADES_PER_AXIS } from "./core/config";
+import type { LODBufferConfig } from "./core/config";
+import { useGameStore } from "../../core/store/gameStore";
 
 interface GrassLODProps {
   grassParams: any;

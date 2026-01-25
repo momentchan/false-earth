@@ -41,11 +41,13 @@ import {
 import {
   getTerrainHeight,
   getTerrainNormal,
-} from "../../terrain/terrainHelpers";
-import { TerrainUniforms } from "../../types";
+} from "../../../core/shaders/terrainHelpers";
+import { TerrainUniforms } from "../../../core/types";
 import {
   bezier3,
   bezier3Tangent,
+} from "../../../core/shaders/mathHelpers";
+import {
   getBezierControlPoints,
   getWindDirection,
   applyWindPush,
@@ -55,7 +57,7 @@ import {
   applyCharacterPush,
   createWaveLogic,
 } from "./shaderHelpers";
-import { waveStructure } from "../../cosmic/useCosmicWaves";
+import { waveStructure } from "../../cosmic/hooks/useCosmicWaves";
 
 /**
  * Creates a grass material with vertex shader that scales blade geometry

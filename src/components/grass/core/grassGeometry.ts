@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu'
 import { instancedArray } from 'three/tsl'
-import { grassStructure } from './constants'
+import { grassStructure } from './config'
 
 // Re-export IndirectStorageBufferAttribute for convenience
 export type IndirectStorageBufferAttribute = THREE.IndirectStorageBufferAttribute

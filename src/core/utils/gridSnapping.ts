@@ -1,7 +1,7 @@
 import { useRef, MutableRefObject, useMemo } from 'react';
 import { Camera } from 'three';
 import { useFrame } from '@react-three/fiber';
-import { DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS, DEFAULT_BLADES_PER_AXIS } from './grass/core/constants';
+import { DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS, DEFAULT_BLADES_PER_AXIS } from '../../components/grass/core/config';
 
 export interface GridSnappingResult {
   snappedX: number;

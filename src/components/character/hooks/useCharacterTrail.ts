@@ -18,7 +18,7 @@ import {
   length,
   step,
 } from 'three/tsl';
-import { DEFAULT_GRASS_AREA_SIZE } from '../../grass/core/constants';
+import { DEFAULT_GRASS_AREA_SIZE } from '../../grass/core/config';
 
 const TRAIL_TEXTURE_SIZE = 512;
 

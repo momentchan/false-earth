@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { Group } from 'three';
 import * as THREE from 'three/webgpu';
-import { TerrainUniforms } from '../components/types';
-import { WindUniforms } from '../components/wind/Wind';
+import { TerrainUniforms, WindUniforms } from '../types';
 import { RoseHandle } from '../components/Rose/Rose';
 
 export enum CameraMode {
@@ -12,15 +11,24 @@ export enum CameraMode {
 }
 
 interface GameState {
+  // ===== Camera State =====
   cameraMode: CameraMode;
   setCameraMode: (mode: CameraMode) => void;
   toggleCameraMode: () => void;
+  
+  // ===== Character State =====
   characterRef: React.MutableRefObject<Group | null> | null;
   setCharacterRef: (ref: React.MutableRefObject<Group | null> | null) => void;
+  
+  // ===== Terrain State =====
   terrainUniforms: TerrainUniforms | null;
   setTerrainUniforms: (uniforms: TerrainUniforms | null) => void;
+  
+  // ===== Wind State =====
   windUniforms: WindUniforms | null;
   setWindUniforms: (uniforms: WindUniforms | null) => void;
+  
+  // ===== Cosmic/Wave State =====
   waveStorageBuffer: THREE.StorageBufferAttribute | null;
   setWaveStorageBuffer: (buffer: THREE.StorageBufferAttribute | null) => void;
   activeWaveCount: number;
@@ -30,23 +38,26 @@ interface GameState {
 }
 
 export const useGameStore = create<GameState>((set) => ({
+  // ===== Camera State =====
   cameraMode: CameraMode.TPS,
-  
   setCameraMode: (mode) => set({ cameraMode: mode }),
-  
-  toggleCameraMode: () => set((state) => ({ 
-    cameraMode: (state.cameraMode + 1) % 3 
+  toggleCameraMode: () => set((state) => ({
+    cameraMode: (state.cameraMode + 1) % 3
   })),
   
+  // ===== Character State =====
   characterRef: null,
   setCharacterRef: (ref) => set({ characterRef: ref }),
   
+  // ===== Terrain State =====
   terrainUniforms: null,
   setTerrainUniforms: (uniforms) => set({ terrainUniforms: uniforms }),
   
+  // ===== Wind State =====
   windUniforms: null,
   setWindUniforms: (uniforms) => set({ windUniforms: uniforms }),
   
+  // ===== Cosmic/Wave State =====
   waveStorageBuffer: null,
   setWaveStorageBuffer: (buffer) => set({ waveStorageBuffer: buffer }),
   activeWaveCount: 0,

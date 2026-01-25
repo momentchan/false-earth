@@ -5,7 +5,7 @@ import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { TextureLoader } from 'three'
-import { VATMeta } from './types'
+import { VATMeta } from './config'
 
 /**
  * Setup VAT geometry: generate UV1 coordinates and convert coordinate system

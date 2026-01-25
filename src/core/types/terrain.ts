@@ -1,5 +1,6 @@
 /**
  * Terrain uniform values for shader computation
+ * Shared across grass, character, and terrain components
  */
 export interface TerrainUniforms {
   uTerrainAmp: any;

@@ -1,20 +1,9 @@
 import { useMemo, useEffect } from 'react';
 import { useControls } from 'leva';
 import { uniform, vec2 } from 'three/tsl';
-import { useGameStore } from '../../store/gameStore';
+import { useGameStore } from '../../core/store/gameStore';
 import { useFrame } from '@react-three/fiber';
-
-/**
- * Wind uniforms interface
- */
-export interface WindUniforms {
-  uWindDir: ReturnType<typeof uniform>;
-  uWindScale: ReturnType<typeof uniform>;
-  uWindSpeed: ReturnType<typeof uniform>;
-  uWindStrength: ReturnType<typeof uniform>;
-  uWindFacing: ReturnType<typeof uniform>;
-  uTime: ReturnType<typeof uniform>;
-}
+import { WindUniforms } from '../../core/types';
 
 export function Wind() {
   const setWindUniforms = useGameStore((state) => state.setWindUniforms);

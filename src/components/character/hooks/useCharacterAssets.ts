@@ -3,9 +3,9 @@ import { useTexture, useGLTF } from '@react-three/drei';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import * as THREE from 'three/webgpu';
 import { Fn, vec3, vec4, float, positionLocal, modelWorldMatrix, cameraViewMatrix, cameraProjectionMatrix, oneMinus, texture, uv } from 'three/tsl';
-import { getTerrainHeight } from '../../terrain/terrainHelpers';
-import { TerrainUniforms } from '../../types';
-import { BODY_MESH_NAMES } from '../constants';
+import { getTerrainHeight } from '../../../core/shaders/terrainHelpers';
+import { TerrainUniforms } from '../../../core/types';
+import { BODY_MESH_NAMES } from '../config';
 
 export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?: any) {
   const { scene: mesh } = useGLTF('/models/Astronaut.glb');

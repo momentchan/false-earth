@@ -3,10 +3,10 @@ import { useFrame } from '@react-three/fiber';
 import { Group } from 'three';
 import * as THREE from 'three/webgpu';
 import { uniform } from 'three/tsl';
-import { CharacterProps } from './types';
+import { CharacterProps } from './config';
 import { useCharacterAssets } from './hooks/useCharacterAssets';
 import { useCharacterPhysics } from './hooks/useCharacterPhysics';
-import { useGameStore, CameraMode } from '../../store/gameStore';
+import { useGameStore, CameraMode } from '../../core/store/gameStore';
 
 export const Character = ({ position = [0, 0, 0], scale = 1 }: CharacterProps) => {
   const groupRef = useRef<Group>(null);

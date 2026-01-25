@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useControls, folder } from 'leva';
 import * as THREE from 'three';
-import { useGameStore } from '../../store/gameStore';
+import { useGameStore } from '../../core/store/gameStore';
 import { RoseHandle } from './Rose';
 
 interface RoseCharacterSpawnerProps {

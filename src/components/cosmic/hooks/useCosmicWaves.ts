@@ -1,7 +1,7 @@
 import { useMemo, useRef, useCallback, useEffect } from 'react';
 import * as THREE from 'three/webgpu';
 import { useFrame } from '@react-three/fiber';
-import { useGameStore } from '../../store/gameStore';
+import { useGameStore } from '../../../core/store/gameStore';
 import { useThree } from '@react-three/fiber';
 import { struct } from 'three/tsl';
 

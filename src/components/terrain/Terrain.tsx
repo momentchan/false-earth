@@ -11,12 +11,12 @@ import {
     positionLocal,
     modelWorldMatrix,
 } from 'three/tsl'
-import { DEFAULT_GRASS_AREA_SIZE } from '../grass/core/constants'
+import { DEFAULT_GRASS_AREA_SIZE } from '../grass/core/config'
 import {
     getTerrainHeight,
-} from './terrainHelpers'
-import { useGridSnapping } from '../useGridSnapping'
-import { useGameStore } from '../../store/gameStore'
+} from '../../core/shaders/terrainHelpers'
+import { useGridSnapping } from '../../core/utils/gridSnapping'
+import { useGameStore } from '../../core/store/gameStore'
 
 
 export function Terrain({

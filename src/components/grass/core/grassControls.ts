@@ -1,5 +1,5 @@
 import { folder } from 'leva'
-import { TIP_COLOR_PRESETS } from './constants'
+import { TIP_COLOR_PRESETS } from './config'
 
 export function createGrassControls() {
   return {

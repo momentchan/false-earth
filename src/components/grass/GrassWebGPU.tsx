@@ -4,15 +4,15 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { WebGPURenderer } from 'three/webgpu'
 import * as THREE from 'three/webgpu'
 import { storage, uniform, vec2, vec3, vec4 } from 'three/tsl'
-import { DEFAULT_BLADES_PER_AXIS, DEFAULT_GRASS_AREA_SIZE, DEFAULT_LOD_SEGMENTS_CONFIG, drawIndirectStructure } from './core/constants'
-import { useGridSnapping } from '../useGridSnapping'
+import { DEFAULT_BLADES_PER_AXIS, DEFAULT_GRASS_AREA_SIZE, DEFAULT_LOD_SEGMENTS_CONFIG, drawIndirectStructure } from './core/config'
+import { useGridSnapping } from '../../core/utils/gridSnapping'
 import { createGrassControls } from './core/grassControls'
 import { createPositions, createGrassData, createVisibleIndicesBuffer, createBladeGeometry } from './core/grassGeometry'
 import { createGrassCompute, createResetDrawBufferCompute } from './core/grassCompute'
 import { updateComputeUniforms, updateMaterialUniforms } from './core/uniforms'
 import { GrassLOD } from './GrassLOD'
-import type { GrassProps, LODBufferConfig } from './core/types'
-import { useGameStore } from '../../store/gameStore'
+import type { GrassProps, LODBufferConfig } from './core/config'
+import { useGameStore } from '../../core/store/gameStore'
 
 export default function GrassWebGPU({ cullCamera }: GrassProps = {} as GrassProps) {
   const { gl, camera: defaultCamera } = useThree()
@@ -205,8 +205,6 @@ export default function GrassWebGPU({ cullCamera }: GrassProps = {} as GrassProp
   useFrame(({ clock }) => {
     const renderer = gl as unknown as WebGPURenderer
     if (!grassComputeRef.current || !resetComputeRef.current || !cameraToUse) return
-
-    // Time is now managed by Wind component, no need to update here
 
     // Update character world position from ref
     if (characterRef?.current) {

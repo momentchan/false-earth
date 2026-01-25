@@ -5,12 +5,12 @@ import { folder, useControls } from "leva";
 import { storage, uniform, vec2, vec3, instancedArray, struct } from "three/tsl";
 import { useVATPreloader, extractGeometryFromScene, setupVATGeometry } from "./core";
 import { createVATMaterial } from "./core/vatMaterial";
-import { drawIndirectStructure } from "../grass/core/constants";
+import { drawIndirectStructure } from "../grass/core/config";
 import { useFrame, useThree } from "@react-three/fiber";
 import { WebGPURenderer } from 'three/webgpu'
-import { vatStructure } from "./core/types";
+import { vatStructure } from "./core/config";
 import { createUpdateCompute, createResetCompute, createSpawnCompute, createVisibleIndicesBuffer } from "./core/vatCompute";
-import { useGameStore } from "../../store/gameStore";
+import { useGameStore } from "../../core/store/gameStore";
 
 // Define API exposed to parent component
 export type RoseHandle = {
