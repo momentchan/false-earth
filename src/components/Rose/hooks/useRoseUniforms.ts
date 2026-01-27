@@ -62,6 +62,7 @@ export function useRoseUniforms() {
         uKeepMax: uniform(0),
         uDieMin: uniform(0),
         uDieMax: uniform(0),
+        uViewProjectionMatrix: uniform(new THREE.Matrix4()),
       },
     }),
     []

@@ -1,4 +1,8 @@
-import { atomicAdd, atomicStore, storage, uint, instanceIndex, instancedArray, hash, If, time, Fn, float, fract, mix, step, vec3, sin, cos, sqrt, floor } from "three/tsl";
+import { atomicAdd, atomicStore, storage, uint, instanceIndex, instancedArray, hash, If, time, Fn, float, fract, mix, step, vec3, sin, cos, sqrt, floor, vec4,
+    cameraViewMatrix,
+    cameraProjectionMatrix,
+    abs
+ } from "three/tsl";
 
 /**
  * Create update compute shader
@@ -79,8 +83,27 @@ export function createUpdateCompute(
                 data.get("progress").assign(progress.clamp(0.0, 1.0))
                 data.get("frame").assign(currentFrame) // Animate
                 // Add to draw queue
-                const idx = atomicAdd(drawStorage.get("instanceCount"), uint(1))
-                indices.element(idx).assign(uint(instanceIndex))
+
+
+                const pos = data.get("position")
+                const clipPos = uniforms.uViewProjectionMatrix.mul(vec4(pos, 1.0))
+
+                const cullRadius = float(3)
+                const w = clipPos.w;
+                const limit = w.add(cullRadius);
+
+                const inFrustum = 
+                    abs(clipPos.x).lessThanEqual(limit)
+                    .and(abs(clipPos.y).lessThanEqual(limit))
+                    .and(clipPos.z.greaterThanEqual(cullRadius.negate())) // Near plane (allow slightly behind)
+                    .and(clipPos.z.lessThanEqual(limit));
+
+
+
+                If(inFrustum, () => {
+                    const idx = atomicAdd(drawStorage.get("instanceCount"), uint(1))
+                    indices.element(idx).assign(uint(instanceIndex))
+                })
             })
         })
     })

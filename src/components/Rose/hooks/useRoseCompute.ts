@@ -15,7 +15,9 @@ export function useRoseCompute(
     geometry: THREE.BufferGeometry | null,
     uniforms: Record<string, any>
 ) {
-    const { gl } = useThree()
+    const { gl, camera } = useThree()
+    const computeRefs = useRef<{ reset: THREE.ComputeNode, spawn: THREE.ComputeNode, update: THREE.ComputeNode } | null>(null)
+
     const spawnUniforms = useMemo(() => ({
         uSpawnPos: uniform(vec3(0)),
         uSpawnCount: uniform(0),    // Number of instances to spawn (0-64)
@@ -30,27 +32,16 @@ export function useRoseCompute(
         return storage(buffer, spawnStateStruct, 1)
     }, [])
 
-    const computeRefs = useRef<{ reset: THREE.ComputeNode, spawn: THREE.ComputeNode, update: THREE.ComputeNode } | null>(null)
-
-
     const { vatData, visibleIndices } = useMemo(() => {
         // VAT Instance Data
         const vatDataArr = new Float32Array(count * 8); // 8 floats per instance (stride)
         const vatData = instancedArray(vatDataArr, vatStructure);
-
-
         const visibleIndices = createVisibleIndicesBuffer(count);
-
-
-
         return { vatData, visibleIndices }
-
     }, [count]);
 
-
     useEffect(() => {
-        if(!geometry || !uniforms) return;
-
+        if (!geometry || !uniforms) return;
 
         // Indirect Draw Setup
         const indexCount = geometry.index ? geometry.index.count : geometry.attributes.position.count
@@ -70,17 +61,18 @@ export function useRoseCompute(
         spawnUniforms.uSpawnPos.value.copy(pos);
         spawnUniforms.uSpawnCount.value = Math.min(amount, BATCH_SIZE);
         spawnUniforms.uSpawnRadius.value = radius;
-      }, [spawnUniforms]);
+    }, [spawnUniforms]);
 
-      useFrame(() => {
+    useFrame(() => {
         const renderer = gl as unknown as WebGPURenderer
         if (!computeRefs.current) return
+
+        uniforms.uViewProjectionMatrix.value = camera.projectionMatrix.clone().multiply(camera.matrixWorldInverse)
 
         renderer.compute(computeRefs.current.reset)
         renderer.compute(computeRefs.current.spawn)
         renderer.compute(computeRefs.current.update)
 
-        // Reset spawn count each frame (important, keep this)
         spawnUniforms.uSpawnCount.value = 0
     })
 
