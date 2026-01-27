@@ -24,8 +24,8 @@ export function GrassLOD({
   uniforms,
 }: GrassLODProps) {
 
-  const bladesPerAxis = DEFAULT_BLADES_PER_AXIS;
   const { scene } = useThree();
+  const bladesPerAxis = DEFAULT_BLADES_PER_AXIS;
   const terrainUniforms = useGameStore((state) => state.terrainUniforms);
   const waveStorageBuffer = useGameStore((state) => state.waveStorageBuffer);
   const activeWaveCount = useGameStore((state) => state.activeWaveCount);

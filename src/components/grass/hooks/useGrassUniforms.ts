@@ -42,9 +42,9 @@ export function useGrassUniforms(windUniforms: any) {
                 uCullOffset: uniform(0.8),
                 uLODNoiseScale: uniform(0.1),
 
-                uBladesPerAxis: uniform(64.0),
-                uGrassAreaSize: uniform(40.0),
-                uGridCellSize: uniform(2.0),
+                uBladesPerAxis: uniform(DEFAULT_BLADES_PER_AXIS),
+                uGrassAreaSize: uniform(DEFAULT_GRASS_AREA_SIZE),
+                uGridCellSize: uniform(DEFAULT_GRASS_AREA_SIZE / DEFAULT_GRID_DIVISIONS),
 
                 uViewProjectionMatrix: uniform(new THREE.Matrix4()),
                 uCameraPosition: uniform(new THREE.Vector3()),
