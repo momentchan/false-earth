@@ -11,14 +11,15 @@ export function useRoseUniforms() {
         green2: { value: "#699555" },
         scaleMin: { value: 8, min: 0, max: 20 },
         scaleMax: { value: 20, min: 0, max: 20 },
-        normalScale: { value: 0, min: 0, max: 10 },
+        normalScale: { value: 5, min: 0, max: 5 },
         hueShift: { value: 0.5, min: 0, max: 1 },
         hueRandomness: { value: 0.1, min: 0, max: 0.5 },
         noiseScale: { value: { x: 1, y: 100 }, min: 0, max: 100 },
-        emissiveColor: { value: "#ffcc99" },
-        emissiveIntensity: { value: 0, min: 0, max: 2 },
-        fresnelPower: { value: 2.0, min: 0.5, max: 5 },
-        metalness: { value: 1, min: 0, max: 1 },
+        emissiveColor: { value: "#ffffff" },
+        emissiveIntensity: { value: 0.4, min: 0, max: 2 },
+        fresnelPower: { value: 4.2, min: 0.5, max: 20 },
+        fresnelIntensity: { value: 0.2, min: 0, max: 1 },
+        metalness: { value: 0, min: 0, max: 1 },
         roughness: { value: 0.7, min: 0, max: 1 },
       },
       { collapsed: true }
@@ -52,6 +53,7 @@ export function useRoseUniforms() {
         uEmissiveColor: uniform(vec3(0)),
         uEmissiveIntensity: uniform(0),
         uFresnelPower: uniform(0),
+        uFresnelIntensity: uniform(0),
       },
       compute: {
         uDelayMin: uniform(0),
@@ -84,6 +86,7 @@ export function useRoseUniforms() {
     uniforms.mat.uEmissiveColor.value.set(ce.r, ce.g, ce.b);
     uniforms.mat.uEmissiveIntensity.value = config.emissiveIntensity;
     uniforms.mat.uFresnelPower.value = config.fresnelPower;
+    uniforms.mat.uFresnelIntensity.value = config.fresnelIntensity;
 
     uniforms.compute.uDelayMin.value = config.delayMin;
     uniforms.compute.uDelayMax.value = config.delayMax;

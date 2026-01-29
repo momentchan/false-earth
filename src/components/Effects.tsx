@@ -42,7 +42,7 @@ export default function Effects() {
     const dofParamsTPS = useControls('Effects.DoF.TPS', {
         enabled: { value: true, label: 'Enable Depth of Field' },
         autofocus: { value: true, label: 'Auto Focus Character' },
-        focusDistance: { value: 3, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.TPS.autofocus') },
+        focusDistance: { value: 1.3, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.TPS.autofocus') },
         focalLength: { value: 25.0, min: 0.01, max: 100, step: 0.1 },
         bokehScale: { value: 5, min: 0.0, max: 10.0, step: 0.1 }
     }, { collapsed: true });

@@ -35,13 +35,40 @@ import {
   time,
   positionWorld,
   cameraPosition,
-  oneMinus
+  oneMinus,
+  materialNormal,
+  normalMap,
+  TBNViewMatrix,
+  mat3,
+  faceDirection,
+  materialRoughness,
 } from "three/tsl";
 import { VATMeta } from "./config";
 import { TerrainUniforms } from "../../../core/types";
 import { getTerrainHeight, getTerrainNormal, rotateAxis } from "../../../core/shaders/terrainHelpers";
 import { calculateWindStrength, safeNormalize } from "../../../core/shaders/windHelpers";
 import { WindUniforms } from "../../../core/types";
+
+const hsvShift = Fn(([color, shift]: [any, any]) => {
+  const hsv = mx_rgbtohsv(color);
+  const shifted = vec3(hsv.x.add(shift.x), hsv.y.add(shift.y), hsv.z.add(shift.z));
+  const clamped = vec3(shifted.x.clamp(0.0, 1.0), shifted.y.clamp(0.0, 1.0), shifted.z.clamp(0.0, 1.0));
+  return mx_hsvtorgb(clamped);
+});
+
+const decodeVatNormal = (texel: any, isCompressed: boolean) => {
+  if (isCompressed) {
+    const encoded = texel.xy.mul(2.0).sub(1.0);
+    const vZ = float(1.0).sub(abs(encoded.x)).sub(abs(encoded.y));
+    const v = vec3(encoded.x, encoded.y, vZ);
+    const s = sign(v.xy);
+    const adj = float(1.0).sub(abs(v.yx)).mul(s);
+    const finalXY = mix(adj, v.xy, step(0.0, v.z));
+    return normalize(vec3(finalXY.x, finalXY.y, v.z));
+  }
+  return normalize(texel.rgb.mul(2.0).sub(1.0));
+};
+
 
 /**
  * Simple VAT node material based on GLSL shader
@@ -64,69 +91,63 @@ export function createVATMaterial(
   const material = new THREE.MeshStandardNodeMaterial();
   material.side = THREE.DoubleSide;
 
-  const vColor = vertexColor(0).r;
-  const isPetal = step(abs(vColor.sub(0.7)), 0.05);
-  const isStem = step(abs(vColor.sub(0.0)), 0.05);
-  const isLeaf = step(abs(vColor.sub(1.0)), 0.05);
-
-  const outline = texture(outlineTex, uv());
-  // Get correct instance data
-  const uvCord = vec2(uv().x.sub(0.5).mul(0.8).add(0.5), uv().y);
-
+  // context & data
   const trueIndex = visibleIndicesBuffer.element(instanceIndex);
   const data = vatData.element(trueIndex);
   const seed = data.get("seed");
   const progress = data.get("progress");
+  const instancePos = data.get("position");
 
-  // Handle VAT animation frame
+  // mask
+  const vColor = vertexColor(0).r;
+  const isPetal = step(abs(vColor.sub(0.7)), 0.05);
+  const isStem = step(abs(vColor.sub(0.0)), 0.05);
+  const isLeaf = step(abs(vColor.sub(1.0)), 0.05);
+  const outline = texture(outlineTex, uv());
+  const uvCord = vec2(uv().x.sub(0.5).mul(0.8).add(0.5), uv().y);
+
+  // vat frame
   const frame = data.get("frame");
-  const texWidth = meta.textureWidth;
   const uFrames = uniform(meta.frameCount);
-  const uv1 = uv(1);
   const frameIndex = uFrames.sub(float(1.0)).mul(frame);
-  const frameOffset = frameIndex.mul(1.0 / texWidth);
-  const sampleUV = vec2(uv1.x.add(frameOffset), uv1.y);
+  const sampleUV = vec2(uv(1).x.add(frameIndex.mul(1.0 / meta.textureWidth)), uv(1).y);
 
-  // HSV shift helper: input rgb + hsv shift -> rgb
-  const hsvShift = Fn(([color, shift]: [any, any]) => {
-    const hsv = mx_rgbtohsv(color);
-    const shifted = vec3(
-      hsv.x.add(shift.x),
-      hsv.y.add(shift.y),
-      hsv.z.add(shift.z)
-    );
-    const clamped = vec3(
-      shifted.x,
-      shifted.y.clamp(0.0, 1.0),
-      shifted.z.clamp(0.0, 1.0)
-    );
-    return mx_hsvtorgb(clamped);
-  });
-
-  // Optional terrain height/normal functions
+  // terrain
   const terrainHeightFn = terrainUniforms
     ? getTerrainHeight(terrainUniforms.uTerrainAmp, terrainUniforms.uTerrainFreq, terrainUniforms.uTerrainSeed)
     : null;
   const terrainNormalFn = terrainHeightFn ? getTerrainNormal(terrainHeightFn) : null;
-  const hasWind = !!windUniforms;
 
-  // Position calculation (Refactor: read position and scale from buffer)
+  const applyRotation = Fn(([vec]: [any]) => {
+    const xzRotated = mx_rotate2d(vec2(vec.x, vec.z), seed.mul(360));
+    let result = vec3(xzRotated.x, vec.y, xzRotated.y);
+
+    if (terrainNormalFn) {
+      const tn = terrainNormalFn(instancePos.xz);
+      const up = vec3(0.0, 1.0, 0.0);
+      const axis = cross(up, tn);
+      const dotProd = clamp(dot(up, tn), -1.0, 1.0);
+      const angle = acos(dotProd);
+
+      If(length(axis).greaterThan(0.001), () => {
+        result.assign(rotateAxis(result, normalize(axis), angle));
+      });
+    }
+
+    return result;
+  });
+
+
   material.positionNode = Fn(() => {
-    // Read VAT vertex offset
     const vatPos = texture(posTex, sampleUV).rgb;
 
-    const xzRotated = mx_rotate2d(vec2(vatPos.x, vatPos.z), seed.mul(360));
-    const rotatedOffset = vec3(xzRotated.x, vatPos.y, xzRotated.y);
-
-    // Apply instance scale
     const scale = mix(uniforms.uScaleMin, uniforms.uScaleMax, seed);
-    const scaledOffset = rotatedOffset.mul(scale);
-    const heightFactor = smoothstep(float(0.0), float(0.5), vatPos.y.abs());
+    const localPos = applyRotation(vatPos.mul(scale));
 
-    let instancePos = data.get("position");
+    let worldPos = positionLocal.add(localPos).add(instancePos);
 
-    // Apply wind sway (same wind logic as grass)
-    if (hasWind && windUniforms) {
+    if (windUniforms) {
+      const heightFactor = smoothstep(float(0.0), float(0.08), vatPos.y.abs()).mul(0.2);
       const windDirNorm = safeNormalize(windUniforms.uWindDir);
       const windStrength = calculateWindStrength(instancePos.xz, {
         uWindDir: windUniforms.uWindDir,
@@ -135,56 +156,17 @@ export function createVATMaterial(
         uWindSpeed: windUniforms.uWindSpeed,
         uWindStrength: windUniforms.uWindStrength,
       });
-      const swayX = windDirNorm.x.mul(windStrength.mul(heightFactor)); // small sway factor scaled by height
-      const swayZ = windDirNorm.y.mul(windStrength.mul(heightFactor));
-      const swayVec = vec3(swayX, float(0.0), swayZ);
-      instancePos = instancePos.add(swayVec);
+      const sway = vec3(windDirNorm.x, 0.0, windDirNorm.y).mul(windStrength.mul(heightFactor));
+      worldPos = worldPos.add(sway);
     }
 
-    // // Optional slope alignment using terrain normal (reuse helper)
-    // if (terrainNormalFn) {
-    //   const tn = terrainNormalFn(instancePos.xz);
-    //   const up = vec3(float(0.0), float(1.0), float(0.0));
-    //   const axis = cross(up, tn);
-    //   const dotProd = clamp(dot(up, tn), float(-1.0), float(1.0));
-    //   const angle = acos(dotProd);
-
-    //   // Only rotate if slope is significant
-    //   const axisLen = length(axis);
-    //   const minAxisLen = float(0.001);
-    //   const shouldRotate = axisLen.greaterThan(minAxisLen);
-
-    //   If(shouldRotate, () => {
-    //     const axisNorm = normalize(axis);
-    //     const rotated = rotateAxis(scaledOffset, axisNorm, angle);
-    //     scaledOffset.assign(rotated);
-    //   });
-    // }
-
-    // Apply world position (instance offset + VAT shape)
-    let worldPos = positionLocal.add(scaledOffset).add(instancePos);
-
-    // Apply terrain height offset if available
     if (terrainHeightFn) {
-      const h = terrainHeightFn(instancePos.xz);
-      return vec3(worldPos.x, worldPos.y.add(h), worldPos.z);
+      worldPos.y.addAssign(terrainHeightFn(instancePos.xz));
     }
 
     return worldPos;
   })();
 
-  // material.fragmentNode = Fn(() => {
-  //   const u = mix(uv(0).x, uv(0).y, isPetal);
-  //   const s = smoothstep(0.0, 1, u);
-  //   const t = time.add(seed.mul(123.0)).mul(-0.5);
-  //   const d = smoothstep(0.3, 0.0, abs(u.sub(mix(-0.2, 1.2, fract(t))))).mul(s).mul(oneMinus(s));
-
-  //   return vec4(d, 0, 0.0, 1.0);
-  // })();
-
-
-
-  // Color processing with HSV shift
   material.colorNode = Fn(() => {
     const ns = mix(uniforms.uNoiseScale, vec2(5, 5), isPetal);
     const nr = mix(vec2(0, 1), vec2(0.5, 1), isPetal);
@@ -192,7 +174,6 @@ export function createVATMaterial(
     const stemColor = mix(uniforms.uGreen, uniforms.uGreen2, n);
 
     let petalCol = texture(colorTex, uvCord).rgb;
-
     const seed2 = fract(seed.mul(87.65));
 
     const hueShift = seed2.mul(float(uniforms.uHueRandomness).add(smoothstep(float(0.6), float(1.0), progress).mul(0.03))).add(uniforms.uHueShift);
@@ -202,86 +183,70 @@ export function createVATMaterial(
     petalCol = mix(darker, petalCol, outline.rgb);
 
     petalCol.mulAssign(n);
-    
 
     const finalColor = petalCol.mul(isPetal)
       .add(stemColor.mul(isStem))
       .add(stemColor.mul(isLeaf));
 
-    const dieOut = smoothstep(0.95, 0.8, progress);
-    finalColor.mulAssign(dieOut);
-
-    return vec4(finalColor, 1.0);
+    return vec4(finalColor.mul(smoothstep(0.95, 0.8, progress)), 1.0);
   })();
+
 
   // Calculate VAT normal with rotation matching the position
   const calculateVatNormalView = Fn(() => {
-    const texel = texture(nrmTex, sampleUV);
-    let vatNormalLocal: any;
-
-    if (meta.compressNormal) {
-      const encoded = texel.xy.mul(vec2(2.0)).sub(vec2(1.0));
-      const v = vec3(
-        encoded.x,
-        encoded.y,
-        float(1.0).sub(abs(encoded.x)).sub(abs(encoded.y))
-      );
-
-      const sX = sign(v.x);
-      const sY = sign(v.y);
-      const adjX = float(1.0).sub(abs(v.y)).mul(sX);
-      const adjY = float(1.0).sub(abs(v.x)).mul(sY);
-
-      const t = step(float(0.0), v.z);
-      const finalX = mix(adjX, v.x, t);
-      const finalY = mix(adjY, v.y, t);
-      vatNormalLocal = normalize(vec3(finalX, finalY, v.z));
-    } else {
-      // Uncompressed normals: multiply by 2 and subtract 1
-      vatNormalLocal = normalize(texel.rgb.mul(vec3(2.0)).sub(vec3(1.0)));
-    }
-
-    const xzRotated = mx_rotate2d(vec2(vatNormalLocal.x, vatNormalLocal.z), seed.mul(360));
-    const rotatedNormalLocal = vec3(xzRotated.x, vatNormalLocal.y, xzRotated.y);
-
+    const rawNormal = texture(nrmTex, sampleUV);
+    const vatNormalLocal = decodeVatNormal(rawNormal, meta.compressNormal ?? true);
+    const rotatedNormalLocal = applyRotation(vatNormalLocal);
     return transformNormalToView(rotatedNormalLocal);
   });
-  const vatNormalView = varying(calculateVatNormalView());
+
+  const vN = varying(calculateVatNormalView());
+
+  const calculateVatTangentView = Fn(() => {
+    const baseTangent = vec3(1.0, 0.0, 0.0);
+    const rotatedTangent = applyRotation(baseTangent);
+    const vTangentGuess = transformNormalToView(rotatedTangent);
+    return normalize(vTangentGuess.sub(vN.mul(dot(vN, vTangentGuess))));
+  });
+
+  const vT = varying(calculateVatTangentView());
+  const vB = normalize(cross(vT, vN));
 
   material.normalNode = Fn(() => {
     const mapN = texture(normalMapTex, uvCord).rgb.mul(2.0).sub(1.0);
-    const finalNormal = vatNormalView
-      .add(mapN.mul(uniforms.uNormalScale));
-    return normalize(finalNormal);
+    const scaledMapN = vec3(mapN.xy.mul(uniforms.uNormalScale), mapN.z);
+    const tbn = mat3(vT, vB, vN);
+    return normalize(tbn.mul(scaledMapN)).mul(faceDirection);
   })();
-
 
   // Fresnel emissive effect
   material.emissiveNode = Fn(() => {
-    // Get the final normal in view space
-    const mapN = texture(normalMapTex, uvCord).rgb.mul(2.0).sub(1.0);
-    const finalNormalView = normalize(vatNormalView.add(mapN.mul(uniforms.uNormalScale)));
-
-    // Calculate view direction (from fragment to camera in view space)
-    // viewDirection is already in view space and normalized
     const viewDir = normalize(cameraPosition.sub(positionWorld));
-
-    // Fresnel factor: edges (grazing angles) have higher values
-    // Using 1 - dot(normal, view) for fresnel effect
-    const fresnelFactor = float(1.0).sub(dot(finalNormalView, viewDir).abs());
-
-    // Apply power curve for more control (higher power = sharper edge glow)
-    const fresnel = fresnelFactor.pow(uniforms.uFresnelPower);
+    const fresnel = float(1.0).sub(abs(dot(materialNormal, viewDir)))
+      .pow(uniforms.uFresnelPower)
+      .mul(uniforms.uFresnelIntensity);
 
     // Apply fresnel to emissive
     const u = mix(uv(0).x, uv(0).y, isPetal);
-    const speed = mix(-0.5, -1, fract(seed.mul(35.8)))
-    const s = smoothstep(0.0, 1, u);
-    const t = time.add(seed.mul(123.0)).mul(speed);
-    const d = smoothstep(0.3, 0.0, abs(u.sub(mix(-0.2, 1.2, fract(t))))).mul(s).mul(oneMinus(s)).mul(2.0);
+    const animSpeed = mix(-0.2, -0.7, fract(seed.mul(35.8)));
+    const t = time.add(seed.mul(123.0)).mul(animSpeed);
+    const wave = smoothstep(0.3, 0.0, abs(u.sub(mix(-0.2, 1.2, fract(t)))));
+    const glow = wave.mul(uniforms.uEmissiveIntensity);
 
-    return uniforms.uEmissiveColor.mul(d.add(fresnel)).mul(uniforms.uEmissiveIntensity);
+    return uniforms.uEmissiveColor.mul(glow.add(fresnel));
   })();
+
+  // material.fragmentNode = Fn(() => {
+  //   const u = mix(uv(0).x, uv(0).y, isPetal);
+  //   const s = smoothstep(0.0, 1, u);
+  //   const t = time.add(seed.mul(123.0)).mul(-0.5);
+  //   const d = smoothstep(0.3, 0.0, abs(u.sub(mix(-0.2, 1.2, fract(t))))).mul(s).mul(oneMinus(s));
+  //   const vatPos = texture(posTex, sampleUV).rgb;
+  //   const heightFactor = smoothstep(float(0.0), float(0.08), vatPos.y.abs());
+
+  //   return vec4(materialRoughness, 0, 0, 1.0);
+  //   return vec4(oneMinus(heightFactor), 0, 0.0, 1.0);
+  // })();
 
   return material;
 }
