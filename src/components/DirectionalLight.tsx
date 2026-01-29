@@ -73,7 +73,7 @@ export function DirectionalLight() {
     })
 
     return (
-        <directionalLight ref={directionalLightRef} castShadow position={basePosition.toArray()} intensity={1.0} />
+        <directionalLight ref={directionalLightRef} position={basePosition.toArray()} intensity={1.0} />
     )
 }
 

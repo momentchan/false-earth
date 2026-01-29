@@ -52,7 +52,7 @@ export default function App() {
                 fov: 45,
                 near: 0.1,
                 far: 200,
-                position: [0, 3, 10]
+                position: [-10, 20, 30]
             }}
             gl={(canvas) => {
                 const renderer = new WebGPURenderer({
@@ -72,7 +72,7 @@ export default function App() {
         >
             <Suspense fallback={null}>
 
-                <StatsGl />
+                {/* <StatsGl /> */}
 
                 {/* <color attach="background" args={['#000000']} /> */}
 
