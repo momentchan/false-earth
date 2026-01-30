@@ -3,7 +3,7 @@ import { useControls } from "leva";
 import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three/webgpu";
 import { WebGPURenderer } from "three/webgpu";
-import { float, pass, smoothstep, uniform } from "three/tsl";
+import { distance, float, length, mix, pass, pow, smoothstep, uniform, uv, vec2, vec3, vec4 } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { dof } from "three/addons/tsl/display/DepthOfFieldNode.js";
 import { smaa } from "three/addons/tsl/display/SMAANode.js";
@@ -56,7 +56,7 @@ export default function Effects() {
     }, { collapsed: true });
 
     const dofParamsFPV = useControls('Effects.DoF.FPV', {
-        enabled: { value: true, label: 'Enable Depth of Field' },
+        enabled: { value: false, label: 'Enable Depth of Field' },
         autofocus: { value: false, label: 'Auto Focus Character' },
         focusDistance: { value: 10, min: 0, max: 100, step: 0.1, render: (get) => !get('Effects.DoF.FPV.autofocus') },
         focalLength: { value: 50.0, min: 0.01, max: 100, step: 0.1 },
@@ -83,6 +83,7 @@ export default function Effects() {
     const uFocusDistance = useRef(uniform(dofParams.focusDistance));
     const uFocalLength = useRef(uniform(dofParams.focalLength));
     const uBokehScale = useRef(uniform(dofParams.bokehScale));
+    const uHelmetStrength = useRef(uniform(0));
     const dofPassRef = useRef<any>(null);
 
     // Update uniform values from Leva (Only if NOT autofocusing)
@@ -118,7 +119,31 @@ export default function Effects() {
 
         // create render passes
         const scenePass = pass(scene, camera);
-        const scenePassColor = scenePass.getTextureNode('output');
+
+        const sceneTex = scenePass.getTextureNode('output');
+        const uvNode = uv();
+
+        const center = vec2(0.5);
+        const toCenter = uvNode.sub(center);
+        const dist = length(toCenter);
+        const dir = toCenter.normalize();
+
+        const distortStrength = float(0.2).mul(uHelmetStrength.current);
+        const distortOffset = dir.mul(pow(dist, 3.0)).mul(distortStrength);
+        const distortedUV = uvNode.sub(distortOffset);
+
+        const aberStrength = float(0.01).mul(uHelmetStrength.current);
+        const aberOffset = dir.mul(dist).mul(aberStrength);
+
+        const rUV = distortedUV.sub(aberOffset);
+        const gUV = distortedUV;
+        const bUV = distortedUV.add(aberOffset);
+
+        const r = sceneTex.sample(rUV).r;
+        const g = sceneTex.sample(gUV).g;
+        const b = sceneTex.sample(bUV).b;
+
+        const scenePassColor = vec4(r, g, b, 1.0);
         const scenePassDepth = scenePass.getViewZNode();
 
         // beam pass
@@ -157,6 +182,15 @@ export default function Effects() {
         const beamColor = beamPassColor.mul(occlusionFactor);
 
         finalNode = finalNode.add(beamColor);
+
+        // Helmet
+        const vignette = smoothstep(0.2, 0.8, dist);
+        const mask = float(1.0).sub(vignette);
+        const glassTint = vec3(0.6, 0.65, 0.7);
+
+        const helmetOverlay = finalNode.mul(mask).mul(glassTint);
+        finalNode = mix(finalNode, helmetOverlay, uHelmetStrength.current);
+
 
         // apply bloom (to entire composition)
         if (bloomParams.enabled) {
@@ -218,6 +252,10 @@ export default function Effects() {
             }
         }
     }, [dofParams.focusDistance, dofParams.focalLength, dofParams.bokehScale, dofParams.enabled, dofParams.autofocus]);
+
+    useEffect(() => {
+        uHelmetStrength.current.value = cameraMode === CameraMode.FPV ? 1 : 0;
+    }, [cameraMode]);
 
     // Update Exposure efficiently
     useEffect(() => {
