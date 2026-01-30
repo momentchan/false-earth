@@ -6,9 +6,12 @@ import * as THREE from 'three/webgpu';
 import { useCosmicBeamSpawner } from './hooks/useCosmicBeamSpawner';
 import { useCosmicWaveTrigger } from './hooks/useCosmicWaveTrigger';
 import { CosmicBeams, CosmicBeamsRef } from './CosmicBeams';
+import { BeamAudio, BeamAudioHandle } from './BeamAudio';
 
 export function CosmicSystem() {
   const beamsRef = useRef<CosmicBeamsRef>(null);
+
+  const audioRef = useRef<BeamAudioHandle>(null);
 
   const [waveParams] = useControls('Waves', () => ({
     radiusMin: { value: 5.0, min: 1.0, max: 50.0, step: 0.5 },
@@ -32,7 +35,10 @@ export function CosmicSystem() {
     waveParams,
     onBeamSpawn: (position) => {
       // Trigger beam, and when it hits the ground, trigger shockwave and spawn roses
-      beamsRef.current?.triggerBeam(position, onBeamHit);
+      beamsRef.current?.triggerBeam(position, (hitPos) => {
+        onBeamHit(hitPos);
+        audioRef.current?.playImpact(hitPos, 0.5);
+      });
     },
   });
 
@@ -50,5 +56,8 @@ export function CosmicSystem() {
     };
   }, [spawnBeam]);
 
-  return <CosmicBeams ref={beamsRef} />;
+  return <>
+    <CosmicBeams ref={beamsRef} />
+    <BeamAudio ref={audioRef} />
+  </>;
 }

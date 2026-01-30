@@ -108,17 +108,19 @@ export function createGrassMaterial(
   const waveBuffer = waveStorageBuffer
     ? storage(waveStorageBuffer, waveStructure, 16)
     : null;
-  
+
   // Active wave count uniform (for optimizing shader loop)
   const uActiveWaveCount = uniforms.uActiveWaveCount ?? uniform(float(0.0));
 
   // Create reusable wave calculation function
   const calculateWaves = createWaveLogic(waveBuffer, uActiveWaveCount, uniforms.uTime);
 
+  const trueIndex = visibleIndicesBuffer.element(instanceIndex);
+  const data = grassData.element(trueIndex);
+  const instancePos = positions.element(trueIndex);
+
   material.positionNode = Fn(() => {
-    const trueIndex = visibleIndicesBuffer.element(instanceIndex);
-    const instanceWorldPos = positions.element(trueIndex);
-    const localPos = instanceWorldPos.sub(uGroupOffset);
+    const localPos = instancePos.sub(uGroupOffset);
     return localPos;
   })();
 
@@ -130,13 +132,6 @@ export function createGrassMaterial(
       terrainSeed
     );
     const terrainNormal = getTerrainNormal(terrainHeight);
-
-    // Get data from compute shader
-    // Read the actual blade index from visible indices buffer (indirect drawing)
-    const trueIndex = visibleIndicesBuffer.element(instanceIndex);
-
-    const data = grassData.element(trueIndex);
-    const instancePos = positions.element(trueIndex);
 
     const width = data.get("bladeWidth").toConst();
     const height = data.get("bladeHeight").toConst();
@@ -411,39 +406,41 @@ export function createGrassMaterial(
 
   material.emissiveNode = Fn(() => {
     const worldPosXZ = vec2(vWorldPos.x, vWorldPos.z);
-    
+
     const waveEffects = calculateWaves(worldPosXZ);
     const baseStrength = waveEffects.get('strength');
 
     const isActive = step(float(0.001), baseStrength);
-    
+
     // Height Gradient
-    const heightFactor = smoothstep(float(0.0), float(1.0), vHeight); 
-    const tipGlow = pow(heightFactor, float(1.5)); 
+    const heightFactor = smoothstep(float(0.0), float(1.0), vHeight);
+    const tipGlow = pow(heightFactor, float(1.5));
 
     // Noise
     const noiseScale = float(2);
     const noisePos = vWorldPos.mul(noiseScale);
-    const noise = mx_noise_float(noisePos); 
+    const noise = mx_noise_float(noisePos);
     const electricCrackle = noise.mul(0.5).add(1.0);
 
     // Heat Color Ramp
-    const coolColor = materialEmissive; 
-    const hotColor = mix(coolColor, vec3(1.0), float(0.8)); 
+    const coolColor = materialEmissive;
+    const hotColor = mix(coolColor, vec3(1.0), float(0.8));
     const finalColor = mix(coolColor, hotColor, pow(baseStrength, float(2.0)));
 
     const glow = baseStrength
-        .mul(finalColor)
-        .mul(tipGlow)
-        .mul(electricCrackle)
-        .mul(float(5.0)); // Boost intensity for Bloom 
+      .mul(finalColor)
+      .mul(tipGlow)
+      .mul(electricCrackle)
+      .mul(float(5.0)); // Boost intensity for Bloom 
 
     return glow.mul(isActive);
   })();
 
 
   // material.fragmentNode = Fn(() => {
-  //   return uLodDebugColor;
+  //   const windStrength01 = data.get("windStrength01").toConst();
+  //   return vec4(windStrength01, 0.0, 0.0, 1.0);
+  //   return windStrength01;
   // })();
 
   return {

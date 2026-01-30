@@ -7,7 +7,8 @@ import DistortedCircle from './DistortedCircle';
 import Bgm from './Bgm';
 
 const tracks = [
-    { id: 'bgm', url: '/audio/noise.m4a', volume: 0.5 }
+    { id: 'grass_field', url: '/audio/grass_field.mp3', volume: 1.5 },
+    { id: 'noise', url: '/audio/noise.m4a', volume: 0.1}
 ]
 export default function AudioButton() {
     const isGameStarted = useGameStore((state) => state.isGameStarted);

@@ -10,7 +10,7 @@ export function Wind() {
 
   const [windParams] = useControls('Wind', () => ({
     windDirX: { value: 1, min: -1, max: 1, step: 0.01 },
-    windDirZ: { value: 0, min: -1, max: 1, step: 0.01 },
+    windDirZ: { value: -0.8, min: -1, max: 1, step: 0.01 },
     windSpeed: { value: 0.35, min: 0, max: 3, step: 0.01 },
     windStrength: { value: 4.5, min: 0, max: 10, step: 0.01 },
     windScale: { value: 0.1, min: 0.01, max: 1, step: 0.01 },
