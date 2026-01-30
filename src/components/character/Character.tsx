@@ -8,9 +8,12 @@ import { useCharacterAssets } from './hooks/useCharacterAssets';
 import { useCharacterPhysics } from './hooks/useCharacterPhysics';
 import { useGameStore, CameraMode } from '../../core/store/gameStore';
 import { useCharacterInput } from './hooks/useCharacterInput';
+import { CharacterAudio, CharacterAudioHandle } from './CharacterAudio';
 
 export const Character = ({ position = [0, 0, 0], scale = 1 }: CharacterProps) => {
   const groupRef = useRef<Group>(null);
+  const audioRef = useRef<CharacterAudioHandle>(null);
+
   const hasPrevFrameRef = useRef(false);
   const worldPosRef = useRef(new THREE.Vector3());
   const prevWorldPosRef = useRef(new THREE.Vector3());
@@ -27,7 +30,9 @@ export const Character = ({ position = [0, 0, 0], scale = 1 }: CharacterProps) =
   const cameraMode = useGameStore((state) => state.cameraMode);
 
   const input = useCharacterInput();
-  useCharacterPhysics(groupRef, scene, animations, input.current);
+  useCharacterPhysics(groupRef, scene, animations, input.current, (event) => {
+    audioRef.current?.playStep(event.type, event.volume);
+  });
 
   // Publish character ref to global store
   useEffect(() => {
@@ -70,6 +75,7 @@ export const Character = ({ position = [0, 0, 0], scale = 1 }: CharacterProps) =
   return (
     <group ref={groupRef} position={position} scale={scale} dispose={null}>
       {scene && <primitive object={scene} />}
+      <CharacterAudio ref={audioRef} />
     </group>
   );
 };
