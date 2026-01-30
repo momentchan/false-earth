@@ -17,6 +17,7 @@ import Rose, { RoseHandle } from "../components/Rose/Rose";
 import { CosmicSystem } from "../components/cosmic/CosmicSystem";
 import { AsyncCompile } from "../core/utils/AsyncCompile";
 import { LoadingScreen } from "../components/LoadingScreen";
+import AudioButton from "../components/audio/AudioButton";
 
 export default function App() {
     const roseRef = useRef<RoseHandle>(null)
@@ -74,7 +75,7 @@ export default function App() {
 
                 {/* <StatsGl /> */}
 
-                {/* <color attach="background" args={['#000000']} /> */}
+                <color attach="background" args={['#000000']} />
 
                 <CameraViewControl />
 
@@ -101,10 +102,13 @@ export default function App() {
                 <AsyncCompile id="character">
                     <Character position={[0, 0, 0]} scale={1} />
                 </AsyncCompile>
-                
+
                 <Effects />
+
             </Suspense>
         </Canvas>
+        {/* <AudioUICanvas /> */}
+        <AudioButton />
         <LoadingScreen />
     </>
 }

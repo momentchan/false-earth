@@ -41,6 +41,9 @@ interface GameState {
 
   isGameStarted: boolean;
   setIsGameStarted: (loaded: boolean) => void;
+
+  isSoundOn: boolean;
+  setIsSoundOn: (isSoundOn: boolean) => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -81,4 +84,7 @@ export const useGameStore = create<GameState>((set) => ({
 
   isGameStarted: false,
   setIsGameStarted: (loaded) => set({ isGameStarted: loaded }),
+
+  isSoundOn: false,
+  setIsSoundOn: (isSoundOn) => set({ isSoundOn: isSoundOn }),
 }));
