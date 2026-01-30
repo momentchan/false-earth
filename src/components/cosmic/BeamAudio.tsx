@@ -1,7 +1,8 @@
-import { forwardRef, useImperativeHandle, useRef, useEffect, useState } from 'react';
-import { useThree, useLoader } from '@react-three/fiber';
-import { AudioLoader, AudioListener, PositionalAudio } from 'three/webgpu';
-import * as THREE from 'three';
+import { forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
+import { useLoader } from '@react-three/fiber';
+import { AudioLoader, PositionalAudio } from 'three/webgpu';
+import * as THREE from 'three/webgpu';
+import { useGameStore } from '../../core/store/gameStore';
 
 export interface BeamAudioHandle {
     playImpact: (position: THREE.Vector3, volume?: number) => void;
@@ -11,9 +12,7 @@ const POOL_SIZE = 10;
 const REF_DISTANCE = 5;
 
 export const BeamAudio = forwardRef<BeamAudioHandle>((_, ref) => {
-    const { camera } = useThree();
-    
-    const [listener] = useState(() => new AudioListener());
+    const listener = useGameStore((state) => state.audioListener);
 
     const buffers = useLoader(AudioLoader, [
         '/audio/wave01.mp3', 
@@ -21,13 +20,6 @@ export const BeamAudio = forwardRef<BeamAudioHandle>((_, ref) => {
 
     const pool = useRef<PositionalAudio[]>([]);
     const poolIndex = useRef(0);
-
-    useEffect(() => {
-        camera.add(listener);
-        return () => {
-            camera.remove(listener);
-        };
-    }, [camera, listener]);
 
     useEffect(() => {
         pool.current.forEach((sound) => {
@@ -60,7 +52,10 @@ export const BeamAudio = forwardRef<BeamAudioHandle>((_, ref) => {
         },
     }));
 
+    if (!listener) return null;
+
     return (
+    
         <group>
             {Array.from({ length: POOL_SIZE }).map((_, i) => (
                 <positionalAudio

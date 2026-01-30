@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Group } from 'three';
+import { AudioListener } from 'three/webgpu';
 import * as THREE from 'three/webgpu';
 import { TerrainUniforms, WindUniforms } from '../types';
 import { RoseHandle } from '../../components/Rose/Rose';
@@ -44,6 +45,9 @@ interface GameState {
 
   isSoundOn: boolean;
   setIsSoundOn: (isSoundOn: boolean) => void;
+
+  audioListener: AudioListener | null;
+  setAudioListener: (listener: THREE.AudioListener) => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -87,4 +91,7 @@ export const useGameStore = create<GameState>((set) => ({
 
   isSoundOn: false,
   setIsSoundOn: (isSoundOn) => set({ isSoundOn: isSoundOn }),
+
+  audioListener: null,
+  setAudioListener: (listener) => set({ audioListener: listener }),
 }));

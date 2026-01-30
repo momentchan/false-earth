@@ -1,7 +1,8 @@
-import { forwardRef, useImperativeHandle, useRef, useEffect, useState } from 'react';
-import { useThree, useLoader } from '@react-three/fiber';
-import { AudioLoader, AudioListener, PositionalAudio } from 'three/webgpu';
+import { forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
+import { useLoader } from '@react-three/fiber';
+import { AudioLoader, PositionalAudio } from 'three/webgpu';
 import { StepType } from './hooks/useCharacterPhysics';
+import { useGameStore } from '../../core/store/gameStore';
 
 export interface CharacterAudioHandle {
     playStep: (type: StepType, volume: number) => void;
@@ -9,8 +10,7 @@ export interface CharacterAudioHandle {
 
 const POOL_SIZE = 20;
 export const CharacterAudio = forwardRef<CharacterAudioHandle>((_, ref) => {
-    const { camera } = useThree();
-    const [listener] = useState(() => new AudioListener());
+    const listener = useGameStore((state) => state.audioListener);
 
     const buffers = useLoader(AudioLoader, [
         '/audio/fs_grass1.mp3',
@@ -22,14 +22,6 @@ export const CharacterAudio = forwardRef<CharacterAudioHandle>((_, ref) => {
 
     const pool = useRef<PositionalAudio[]>([]);
     const poolIndex = useRef(0);
-
-    // 3. Attach Listener to Camera (Ears)
-    useEffect(() => {
-        camera.add(listener);
-        return () => {
-            camera.remove(listener);
-        };
-    }, [camera, listener]);
 
     useEffect(() => {
         pool.current.forEach((sound) => {
@@ -59,6 +51,8 @@ export const CharacterAudio = forwardRef<CharacterAudioHandle>((_, ref) => {
             }
         },
     }));
+
+    if (!listener) return null;
 
     return (
         <group>

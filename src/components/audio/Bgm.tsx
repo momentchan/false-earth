@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
+import { useGameStore } from '../../core/store/gameStore';
+import * as THREE from 'three/webgpu';
 
 interface Track {
   id: string;
@@ -15,10 +16,11 @@ interface BgmProps {
 const Bgm = ({ active, tracks }: BgmProps) => {
   const sounds = useRef<Map<string, THREE.Audio>>(new Map());
   const [ready, setReady] = useState(false);
+  const listener = useGameStore((state) => state.audioListener);  
 
   useEffect(() => {
-    // AudioListener acts as the 'ears' for the scene
-    const listener = new THREE.AudioListener();
+    if (!listener) return;
+
     const loader = new THREE.AudioLoader();
     let loadedCount = 0;
 
@@ -32,7 +34,6 @@ const Bgm = ({ active, tracks }: BgmProps) => {
         
         sounds.current.set(t.id, sound);
         
-        // Ensure all files are ready before allowing playback
         loadedCount++;
         if (loadedCount === tracks.length) setReady(true);
       });
@@ -43,7 +44,7 @@ const Bgm = ({ active, tracks }: BgmProps) => {
       sounds.current.forEach(s => s.isPlaying && s.stop());
       sounds.current.clear();
     };
-  }, [tracks]);
+  }, [tracks, listener]);
 
   useEffect(() => {
     // Sync playback state with the game status

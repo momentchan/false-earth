@@ -17,19 +17,18 @@ import { AsyncCompile } from "../core/utils/AsyncCompile";
 import { LoadingScreen } from "../components/LoadingScreen";
 import AudioButton from "../components/audio/AudioButton";
 import { StarrySky } from "../components/background/StarrySky";
+import { AudioManager } from "../components/audio/AudioManager";
 
 export default function App() {
     const roseRef = useRef<RoseHandle>(null)
     const setRoseRef = useGameStore((state) => state.setRoseRef);
 
-    // Register roseRef to global store
     useEffect(() => {
         setRoseRef(roseRef);
         return () => setRoseRef(null);
     }, [setRoseRef]);
 
 
-    // Get toggle method from store
     const toggleCameraMode = useGameStore((state) => state.toggleCameraMode);
 
     // Centralized Input Management (Keyboard)
@@ -77,6 +76,8 @@ export default function App() {
                 <color attach="background" args={['#000000']} />
 
                 <CameraViewControl />
+
+                <AudioManager />
 
                 <Environment
                     files="/textures/potsdamer_platz_1k_nb.hdr"
