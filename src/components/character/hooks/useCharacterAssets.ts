@@ -29,11 +29,12 @@ const extractClip = (gltf: any, name: string): THREE.AnimationClip | null => {
 };
 
 export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?: any) {
-  const [meshData, idleAnim, walkAnim, runAnim] = useGLTF([
+  const [meshData, idleAnim, walkAnim, runAnim, backAnim] = useGLTF([
     '/models/Astronaut.glb',
     '/models/Idle.glb',
     '/models/Walking.glb',
     '/models/Running.glb',
+    '/models/WalkingBack.glb',
   ]);
   const mesh = meshData.scene;
 
@@ -108,6 +109,7 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?
       { src: idleAnim, name: 'Idle' },
       { src: walkAnim, name: 'Walk' },
       { src: runAnim,  name: 'Run'  },
+      { src: backAnim, name: 'Back' },
     ];
 
     const anims = animConfig
@@ -120,6 +122,7 @@ export function useCharacterAssets(terrainUniforms?: TerrainUniforms, uWorldPos?
     idleAnim,
     walkAnim,
     runAnim,
+    backAnim,
     bodyTex,
     detailTex,
     terrainUniforms,

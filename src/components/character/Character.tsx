@@ -29,8 +29,7 @@ export const Character = ({ position = [0, 0, 0], scale = 1 }: CharacterProps) =
   // Get camera mode from store
   const cameraMode = useGameStore((state) => state.cameraMode);
 
-  const input = useCharacterInput();
-  useCharacterPhysics(groupRef, scene, animations, input.current, (event) => {
+  useCharacterPhysics(groupRef, scene, animations, (event) => {
     audioRef.current?.playStep(event.type, event.volume);
   });
 
@@ -69,7 +68,7 @@ export const Character = ({ position = [0, 0, 0], scale = 1 }: CharacterProps) =
 
     prevWorldPosRef.current.copy(worldPos);
   });
-  
+
   if (!scene) return null;
 
   return (

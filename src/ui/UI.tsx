@@ -2,9 +2,10 @@ import { useGameStore } from "../core/store/gameStore";
 import { LoadingScreen } from "./LoadingScreen";
 import AudioButton from "./AudioButton";
 import { SideBar } from "./SideBar";
+import { TouchControls } from "../core/input/TouchControls";
 
 export function UI() {
-    const isGameStarted = useGameStore((state) => state.isGameStarted);
+    const isMobile = useGameStore((state) => state.isMobile);
 
     return (
         <div style={{ 
@@ -19,6 +20,7 @@ export function UI() {
             <LoadingScreen />
             <AudioButton />
             <SideBar />
+            {isMobile && <TouchControls />}
         </div>
     );
 }

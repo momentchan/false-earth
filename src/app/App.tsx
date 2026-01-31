@@ -18,6 +18,7 @@ import { StarrySky } from "../components/background/StarrySky";
 import { AudioManager } from "../components/audio/AudioManager";
 import { DeviceDetector } from "../core/utils/DeviceDetector";
 import { UI } from "../ui/UI";
+import { useKeyboard } from "../core/input/useKeyboard";
 
 export default function App() {
     const roseRef = useRef<RoseHandle>(null)
@@ -41,6 +42,9 @@ export default function App() {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [toggleCameraMode]);
+
+
+    useKeyboard();
 
     return <>
         <LevaWrapper collapsed={true} initialHidden={true} />
