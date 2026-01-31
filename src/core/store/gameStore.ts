@@ -6,9 +6,9 @@ import { TerrainUniforms, WindUniforms } from '../types';
 import { RoseHandle } from '../../components/Rose/Rose';
 
 export enum CameraMode {
-  TPS = 0,
-  FREE = 1,
-  FPV = 2,
+  TPV  = 0,
+  FPV = 1,
+  FREE = 2,
 }
 
 interface GameState {
@@ -48,11 +48,17 @@ interface GameState {
 
   audioListener: AudioListener | null;
   setAudioListener: (listener: THREE.AudioListener) => void;
+
+  isMobile: boolean;
+  setIsMobile: (isMobile: boolean) => void;
+
+  quality: 'low' | 'high';
+  toggleQuality: () => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
   // ===== Camera State =====
-  cameraMode: CameraMode.TPS,
+  cameraMode: CameraMode.TPV,
   setCameraMode: (mode) => set({ cameraMode: mode }),
   toggleCameraMode: () => set((state) => ({
     cameraMode: (state.cameraMode + 1) % 3
@@ -94,4 +100,10 @@ export const useGameStore = create<GameState>((set) => ({
 
   audioListener: null,
   setAudioListener: (listener) => set({ audioListener: listener }),
+
+  isMobile: false,
+  setIsMobile: (isMobile) => set({ isMobile: isMobile }),
+
+  quality: 'high',
+  toggleQuality: () => set((state) => ({ quality: state.quality === 'high' ? 'low' : 'high' })),
 }));

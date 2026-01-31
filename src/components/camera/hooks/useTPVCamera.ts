@@ -13,7 +13,7 @@ interface UseTPSCameraOptions {
  * Hook to handle Third Person Shooter (TPS) camera logic
  * Uses CameraControls to follow character with mouse look
  */
-export function useTPSCamera({
+export function useTPVCamera({
   characterRef,
   enabled,
 }: UseTPSCameraOptions) {

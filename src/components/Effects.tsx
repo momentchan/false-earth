@@ -3,26 +3,35 @@ import { useControls } from "leva";
 import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three/webgpu";
 import { WebGPURenderer } from "three/webgpu";
-import { distance, float, length, mix, pass, pow, smoothstep, uniform, uv, vec2, vec3, vec4 } from "three/tsl";
+import { clamp, distance, float, length, mix, pass, pow, smoothstep, uniform, uv, vec2, vec3, vec4 } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { dof } from "three/addons/tsl/display/DepthOfFieldNode.js";
 import { smaa } from "three/addons/tsl/display/SMAANode.js";
 import { useGameStore, CameraMode } from "../core/store/gameStore";
 
 export default function Effects() {
+    // 1. Get Quality and Camera Mode from Store
     const cameraMode = useGameStore((state) => state.cameraMode);
+    const quality = useGameStore((state) => state.quality); // 'high' | 'low'
     const characterRef = useGameStore((state) => state.characterRef);
+    
+    // Determine if we are in high quality mode
+    const isHighQuality = quality === 'high';
+
     const postProcessingRef = useRef<THREE.PostProcessing | null>(null);
+    
+    // Node References for updating uniforms without rebuilding
+    const dofPassRef = useRef<any>(null);
     const bloomPassRef = useRef<any>(null);
-    const smaaPassRef = useRef<any>(null);
+    
     const { gl, scene, camera } = useThree();
 
     const beamCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
-
-    // Temporary vectors for calculation to avoid GC
     const camPos = useMemo(() => new THREE.Vector3(), []);
     const characterPos = useMemo(() => new THREE.Vector3(), []);
 
+    // --- LEVA CONTROLS ---
+    // Even in Low quality, we keep controls availble in code, but they are ignored in the render chain
     const smaaParams = useControls('Effects.SMAA', {
         enabled: { value: false, label: 'Enable SMAA' }
     }, { collapsed: true });
@@ -39,6 +48,7 @@ export default function Effects() {
         exposure: { value: 1.1, min: 0.1, max: 2, step: 0.01 }
     }, { collapsed: true });
 
+    // DoF Params (Grouped by Camera Mode)
     const dofParamsTPS = useControls('Effects.DoF.TPS', {
         enabled: { value: true, label: 'Enable Depth of Field' },
         autofocus: { value: true, label: 'Auto Focus Character' },
@@ -63,68 +73,59 @@ export default function Effects() {
         bokehScale: { value: 3, min: 0.0, max: 10.0, step: 0.1 }
     }, { collapsed: true });
 
-    // Get current DoF params based on camera mode
+    // Computed DoF Params
     const dofParams = useMemo(() => {
         switch (cameraMode) {
-            case CameraMode.TPS:
-                return dofParamsTPS;
-            case CameraMode.FREE:
-                return dofParamsFREE;
-            case CameraMode.FPV:
-                return dofParamsFPV;
-            default:
-                return dofParamsTPS;
+            case CameraMode.TPV: return dofParamsTPS;
+            case CameraMode.FREE: return dofParamsFREE;
+            case CameraMode.FPV: return dofParamsFPV;
+            default: return dofParamsTPS;
         }
     }, [cameraMode, dofParamsTPS, dofParamsFREE, dofParamsFPV]);
 
-
-    // Use uniforms for DoF parameters to avoid rebuilding PostProcessing
-    // Initialize with current mode's values
+    // --- UNIFORMS ---
     const uFocusDistance = useRef(uniform(dofParams.focusDistance));
     const uFocalLength = useRef(uniform(dofParams.focalLength));
     const uBokehScale = useRef(uniform(dofParams.bokehScale));
     const uHelmetStrength = useRef(uniform(0));
-    const dofPassRef = useRef<any>(null);
 
-    // Update uniform values from Leva (Only if NOT autofocusing)
-    // This effect runs when DoF params change or camera mode changes
+    // Update Uniforms (Cheap, runs every render or param change)
     useEffect(() => {
         if (!dofParams.autofocus) {
             uFocusDistance.current.value = dofParams.focusDistance;
         }
         uFocalLength.current.value = dofParams.focalLength;
         uBokehScale.current.value = dofParams.bokehScale;
-    }, [dofParams.focusDistance, dofParams.focalLength, dofParams.bokehScale, dofParams.autofocus, dofParams.enabled]);
+    }, [dofParams, isHighQuality]); // Depend on quality to ensure refresh
 
+    // --- MAIN EFFECT COMPOSITION ---
     useEffect(() => {
-        // Ensure we are using a WebGPURenderer
-        if (!gl || !scene || !camera || !(gl instanceof WebGPURenderer)) {
-            return;
-        }
+        if (!gl || !scene || !camera || !(gl instanceof WebGPURenderer)) return;
 
         const renderer = gl as WebGPURenderer;
-
-        // Initialize PostProcessing
         const postProcessing = new THREE.PostProcessing(renderer);
         postProcessingRef.current = postProcessing;
 
-        // layer mask        
+        // 1. Layer Setup
         camera.layers.enable(0);
         camera.layers.disable(1);
-
         beamCamera.layers.disableAll();
         beamCamera.layers.enable(1);
-
         beamCamera.copy(camera);
 
-        // create render passes
+        // 2. Base Scene Pass
         const scenePass = pass(scene, camera);
-
         const sceneTex = scenePass.getTextureNode('output');
-        const uvNode = uv();
+        const scenePassDepth = scenePass.getViewZNode();
 
-        const center = vec2(0.5);
-        const toCenter = uvNode.sub(center);
+        // 3. Beam Pass (Always enabled, core mechanic)
+        const beamPass = pass(scene, beamCamera);
+        const beamPassColor = beamPass.getTextureNode('output');
+        const beamPassDepth = beamPass.getViewZNode();
+
+        // 4. Helmet Distortion / Aberration Logic (Always enabled, cheap math)
+        const uvNode = uv();
+        const toCenter = uvNode.sub(0.5);
         const dist = length(toCenter);
         const dir = toCenter.normalize();
 
@@ -139,19 +140,14 @@ export default function Effects() {
         const gUV = distortedUV;
         const bUV = distortedUV.add(aberOffset);
 
+        // Manual Chromatic Aberration Sampling
         const r = sceneTex.sample(rUV).r;
         const g = sceneTex.sample(gUV).g;
         const b = sceneTex.sample(bUV).b;
-
+        
         const scenePassColor = vec4(r, g, b, 1.0);
-        const scenePassDepth = scenePass.getViewZNode();
 
-        // beam pass
-        const beamPass = pass(scene, beamCamera);
-        const beamPassColor = beamPass.getTextureNode('output');
-        const beamPassDepth = beamPass.getViewZNode();
-
-        // tone mapping
+        // 5. Tone Mapping (Global Renderer Setting)
         if (toneMappingParams.enabled) {
             renderer.toneMapping = THREE.ReinhardToneMapping;
             renderer.toneMappingExposure = Math.pow(toneMappingParams.exposure, 4.0);
@@ -159,12 +155,12 @@ export default function Effects() {
             renderer.toneMapping = THREE.NoToneMapping;
         }
 
-        // tsl node compositing chain
-
+        // --- COMPOSITION CHAIN ---
         let finalNode: any = scenePassColor;
 
-        // apply dof (only to scene layer)
-        if (dofParams.enabled) {
+        // [Quality Check] Depth of Field
+        // Only add DoF node if Quality is HIGH and Enabled
+        if (isHighQuality && dofParams.enabled) {
             const dofNode = dof(
                 scenePassColor,
                 scenePassDepth,
@@ -173,127 +169,106 @@ export default function Effects() {
                 uBokehScale.current
             );
             dofPassRef.current = dofNode;
-            finalNode = dofNode;
+            finalNode = dofNode; // Pass output to next stage
+        } else {
+            dofPassRef.current = null;
         }
 
-        // add beams
+        // [Core] Add Beams (Always on)
         const depthDiff = beamPassDepth.sub(scenePassDepth);
         const occlusionFactor = smoothstep(float(0), float(10), depthDiff);
         const beamColor = beamPassColor.mul(occlusionFactor);
-
         finalNode = finalNode.add(beamColor);
 
-        // Helmet
+        // [Core] Helmet Overlay (Always on)
         const vignette = smoothstep(0.2, 0.8, dist);
-        const mask = float(1.0).sub(vignette);
-        const glassTint = vec3(0.6, 0.65, 0.7);
-
-        const helmetOverlay = finalNode.mul(mask).mul(glassTint);
+        const mask = clamp(float(1.0).sub(vignette), 0.0, 1.0);
+        const glassTint = vec4(0.6, 0.65, 0.7, 1.0);
+        const helmetOverlay = finalNode.mul(vec4(mask, mask, mask, 1.0)).mul(glassTint);
         finalNode = mix(finalNode, helmetOverlay, uHelmetStrength.current);
 
-
-        // apply bloom (to entire composition)
-        if (bloomParams.enabled) {
+        // [Quality Check] Bloom
+        if (isHighQuality && bloomParams.enabled) {
             const bloomNode = bloom(finalNode);
             bloomPassRef.current = bloomNode;
-
+            
+            // Set initial values
             bloomNode.threshold.value = bloomParams.threshold;
             bloomNode.strength.value = bloomParams.strength;
             bloomNode.radius.value = bloomParams.radius;
 
             finalNode = finalNode.add(bloomNode);
+        } else {
+            bloomPassRef.current = null;
         }
 
-        // smaa (anti-aliasing)
-        if (smaaParams.enabled) {
+        // [Quality Check] SMAA
+        if (isHighQuality && smaaParams.enabled) {
             const smaaNode = smaa(finalNode);
-            smaaPassRef.current = smaaNode;
             finalNode = smaaNode;
         }
 
-        // set output
-        postProcessing.outputNode = finalNode;
+        // Output
+        postProcessing.outputNode = finalNode
 
         return () => {
-            if (postProcessingRef.current) {
-                postProcessingRef.current = null;
-            }
+            postProcessingRef.current = null;
+            dofPassRef.current = null;
             bloomPassRef.current = null;
-            smaaPassRef.current = null;
-            // Restore main camera settings on cleanup to avoid affecting other components
-            camera.layers.enableAll();
+            // Reset layers
+            camera.layers.enableAll(); 
         };
-    }, [gl, scene, camera, smaaParams.enabled, bloomParams.enabled, dofParams.enabled, toneMappingParams.enabled, beamCamera]);
 
-    // Update Bloom Uniforms efficiently
+    }, [
+        gl, scene, camera, beamCamera,
+        isHighQuality, 
+        dofParams.enabled, 
+        bloomParams.enabled, 
+        smaaParams.enabled, 
+        toneMappingParams.enabled
+    ]);
+    
+    // Update Bloom Params (Only if node exists)
     useEffect(() => {
-        if (bloomPassRef.current && bloomParams.enabled) {
+        if (bloomPassRef.current) {
             bloomPassRef.current.threshold.value = bloomParams.threshold;
             bloomPassRef.current.strength.value = bloomParams.strength;
             bloomPassRef.current.radius.value = bloomParams.radius;
         }
-    }, [bloomParams.threshold, bloomParams.strength, bloomParams.radius, bloomParams.enabled]);
+    }, [bloomParams]);
 
-    // Update DoF parameters via DoF node properties (if they exist)
-    // The uniforms are already updated in the first useEffect above
-    // This ensures DoF node properties are also updated if the node exposes them
-    useEffect(() => {
-        if (dofPassRef.current && dofParams.enabled) {
-            // Update DoF node properties directly if they exist
-            // Only update focusDistance if NOT autofocusing
-            if (dofPassRef.current.focusDistance && !dofParams.autofocus) {
-                dofPassRef.current.focusDistance.value = dofParams.focusDistance;
-            }
-            if (dofPassRef.current.focalLength) {
-                dofPassRef.current.focalLength.value = dofParams.focalLength;
-            }
-            if (dofPassRef.current.bokehScale) {
-                dofPassRef.current.bokehScale.value = dofParams.bokehScale;
-            }
-        }
-    }, [dofParams.focusDistance, dofParams.focalLength, dofParams.bokehScale, dofParams.enabled, dofParams.autofocus]);
-
+    // Update Helmet Strength
     useEffect(() => {
         uHelmetStrength.current.value = cameraMode === CameraMode.FPV ? 1 : 0;
     }, [cameraMode]);
 
-    // Update Exposure efficiently
+    // Update Exposure
     useEffect(() => {
         if (gl && toneMappingParams.enabled) {
             const renderer = gl as unknown as WebGPURenderer;
             renderer.toneMappingExposure = Math.pow(toneMappingParams.exposure, 4.0);
         }
-    }, [gl, toneMappingParams.exposure, toneMappingParams.enabled]);
+    }, [gl, toneMappingParams]);
 
-    // Render Loop & Auto Focus Logic
-    // Priority 1 ensures this runs AFTER R3F's default render/update cycle, 
-    // effectively taking over the screen output.
+    // --- RENDER LOOP ---
     useFrame(() => {
-        // --- AUTOFOCUS LOGIC ---
-        if (dofParams.enabled && dofParams.autofocus && characterRef?.current) {
-            // Get camera world position
+        // AutoFocus Logic (Only run if DoF is active in High Quality)
+        if (isHighQuality && dofParams.enabled && dofParams.autofocus && characterRef?.current) {
             camera.getWorldPosition(camPos);
-
-            // Get character world position from ref
             characterRef.current.getWorldPosition(characterPos);
-
-            // Calculate distance from camera to character position
             const dist = camPos.distanceTo(characterPos);
-
-            // Update the uniform directly
             uFocusDistance.current.value = dist;
         }
 
-        // Sync cameras
-        // Copy main camera parameters (position, rotation, FOV) to beam camera every frame
-        // Ensures both layers are perfectly aligned
+        // Sync Beam Camera
         beamCamera.copy(camera);
-
-        // Force layer settings again (prevent other code from interfering)
+        
+        // Isolate Layers for rendering
         camera.layers.disable(1);
         beamCamera.layers.disableAll();
         beamCamera.layers.enable(1);
 
+        // Render Effect Chain
         if (postProcessingRef.current) {
             postProcessingRef.current.render();
         }

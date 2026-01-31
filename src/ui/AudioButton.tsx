@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useGameStore } from '../../core/store/gameStore';
+import { useGameStore } from '../core/store/gameStore';
 import WebGPUCanvas from './WebGPUCanvas'; // Import the reusable component
 import DistortedCircle from './DistortedCircle';
-import Bgm from './Bgm';
+import Bgm from '../components/audio/Bgm';
 
 const tracks = [
     { id: 'grass_field', url: '/audio/grass_field.mp3', volume: 1.5 },

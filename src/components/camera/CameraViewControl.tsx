@@ -1,7 +1,7 @@
 import { useGameStore, CameraMode } from '../../core/store/gameStore';
 import { CameraControls } from '@react-three/drei';
 import { useFPVCamera } from './hooks/useFPVCamera';
-import { useTPSCamera } from './hooks/useTPSCamera';
+import { useTPVCamera } from './hooks/useTPVCamera';
 import { useEffect, useState } from 'react';
 import * as THREE from 'three/webgpu';
 
@@ -21,9 +21,9 @@ export function CameraViewControl({ boneName = 'head' }: Props) {
   const [introFinished, setIntroFinished] = useState(false);
 
   // Use TPS camera hook (handles pointer lock and mouse look)
-  const { controlsRef } = useTPSCamera({
+  const { controlsRef } = useTPVCamera({
     characterRef,
-    enabled: cameraMode === CameraMode.TPS && introFinished,
+    enabled: cameraMode === CameraMode.TPV && introFinished,
   });
 
   // Use FPV camera hook (handles bone attachment and mouse look)

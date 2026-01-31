@@ -20,6 +20,7 @@
   "dependencies": {
     "@emotion/react": "^11.13.5",
     "@emotion/styled": "^11.13.0",
+    "@mui/icons-material": "^7.3.7",
     "@mui/material": "^7.3.4",
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^9.4.0",

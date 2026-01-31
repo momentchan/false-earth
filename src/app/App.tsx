@@ -14,10 +14,10 @@ import { CameraViewControl } from "../components/camera/CameraViewControl";
 import Rose, { RoseHandle } from "../components/Rose/Rose";
 import { CosmicSystem } from "../components/cosmic/CosmicSystem";
 import { AsyncCompile } from "../core/utils/AsyncCompile";
-import { LoadingScreen } from "../components/LoadingScreen";
-import AudioButton from "../components/audio/AudioButton";
 import { StarrySky } from "../components/background/StarrySky";
 import { AudioManager } from "../components/audio/AudioManager";
+import { DeviceDetector } from "../core/utils/DeviceDetector";
+import { UI } from "../ui/UI";
 
 export default function App() {
     const roseRef = useRef<RoseHandle>(null)
@@ -44,6 +44,10 @@ export default function App() {
 
     return <>
         <LevaWrapper collapsed={true} initialHidden={true} />
+
+        <DeviceDetector />
+
+        <UI />
 
         <Canvas
             shadows
@@ -106,8 +110,5 @@ export default function App() {
 
             </Suspense>
         </Canvas>
-        {/* <AudioUICanvas /> */}
-        <AudioButton />
-        <LoadingScreen />
     </>
 }
