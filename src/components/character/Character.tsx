@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect, useState } from 'react';
+import { useRef, useMemo, useEffect, useState, Suspense } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Group } from 'three';
 import * as THREE from 'three/webgpu';
@@ -73,7 +73,10 @@ export const Character = ({ position = [0, 0, 0], scale = 1 }: CharacterProps) =
   return (
     <group ref={groupRef} position={position} scale={scale} dispose={null}>
       {scene && <primitive object={scene} />}
-      <CharacterAudio ref={audioRef} />
+
+      <Suspense fallback={null}>
+        <CharacterAudio ref={audioRef} />
+      </Suspense>
     </group>
   );
 };

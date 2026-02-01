@@ -19,6 +19,10 @@ import { AudioManager } from "../components/audio/AudioManager";
 import { DeviceDetector } from "../core/utils/DeviceDetector";
 import { UI } from "../ui/UI";
 import { useKeyboard } from "../core/input/useKeyboard";
+import { preloadVATAssets } from "../components/Rose/core";
+
+preloadVATAssets('/vat/Rose_meta.json');
+
 
 export default function App() {
     const roseRef = useRef<RoseHandle>(null)
@@ -53,6 +57,7 @@ export default function App() {
 
         <UI />
 
+
         <Canvas
             shadows
             camera={{
@@ -77,6 +82,8 @@ export default function App() {
             dpr={[1, 2]}
             performance={{ min: 0.5, max: 1 }}
         >
+            <AudioManager />
+
             <Suspense fallback={null}>
 
                 {/* <StatsGl /> */}
@@ -85,7 +92,6 @@ export default function App() {
 
                 <CameraViewControl />
 
-                <AudioManager />
 
                 <Environment
                     files="/textures/potsdamer_platz_1k_nb.hdr"

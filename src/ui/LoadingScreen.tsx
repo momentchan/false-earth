@@ -56,7 +56,6 @@ export function LoadingScreen() {
     const [isVisible, setIsVisible] = useState(true);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // --- Logic: Calculate Progress ---
     // Combined progress: 50% for download, 50% for shader compilation/component readiness
     const displayProgress = useMemo(() => {
         const readyCount = EXPECTED_COMPONENTS.filter(id => !!componentsReady[id]).length;
@@ -72,17 +71,14 @@ export function LoadingScreen() {
         return Math.min(Math.round(total), 99);
     }, [active, downloadProgress, componentsReady]);
 
-    // --- Logic: Check Readiness ---
     useEffect(() => {
         const readyCount = EXPECTED_COMPONENTS.filter(id => !!componentsReady[id]).length;
         if (readyCount >= EXPECTED_COMPONENTS.length && !active) {
-            // Small delay to ensure smooth transition
             const t = setTimeout(() => setIsReadyToStart(true), 200);
             return () => clearTimeout(t);
         }
     }, [componentsReady, active]);
 
-    // --- Handlers ---
     const handleStart = () => {
         if (!isReadyToStart) return;
         

@@ -1,8 +1,5 @@
-// src/components/cosmic/CosmicSystem.tsx
-// Orchestrator component that coordinates beams and waves
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, Suspense } from 'react';
 import { useControls } from 'leva';
-import * as THREE from 'three/webgpu';
 import { useCosmicBeamSpawner } from './hooks/useCosmicBeamSpawner';
 import { useCosmicWaveTrigger } from './hooks/useCosmicWaveTrigger';
 import { CosmicBeams, CosmicBeamsRef } from './CosmicBeams';
@@ -58,6 +55,9 @@ export function CosmicSystem() {
 
   return <>
     <CosmicBeams ref={beamsRef} />
-    <BeamAudio ref={audioRef} />
+    
+    <Suspense fallback={null}>
+      <BeamAudio ref={audioRef} />
+    </Suspense>
   </>;
 }
