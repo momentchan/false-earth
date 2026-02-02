@@ -117,6 +117,10 @@ export function createGrassCompute(
     return length(worldPos.sub(camPos));
   });
 
+  const DOMAIN_WRAP = float(32.0);
+  const getSafeHashPos = (pos: any) => vec2(abs(pos.x).mod(DOMAIN_WRAP), abs(pos.y).mod(DOMAIN_WRAP));
+
+
   const seededRandom = (seed: any) => {
     const x = mul(sin(seed), 10000.0);
     return fract(x);
@@ -216,7 +220,7 @@ export function createGrassCompute(
 
       offsets.forEach(([x, y]) => {
         const neighbor = vec2(float(x), float(y));
-        const currentCellId = i_base.add(neighbor);
+        const currentCellId = getSafeHashPos(i_base.add(neighbor));
 
         const seed = hash2(currentCellId);
         const diff = neighbor.add(seed).sub(f_base);
@@ -316,35 +320,28 @@ export function createGrassCompute(
 
     // Calculate jittered instance position from instanceIndex
     const calculateJitteredPosition = Fn(([idx]: [any]) => {
-      // Calculate grid cell (x, z) from instanceIndex (local space)
       const bladesPerAxis = uniforms.uBladesPerAxis;
       const grassAreaSize = uniforms.uGrassAreaSize;
       const gridX = floor(float(idx).div(bladesPerAxis));
       const gridZ = float(idx).sub(gridX.mul(bladesPerAxis));
 
-      // Calculate base position from grid cell (without jitter, in local space)
-      // fx = x / bladesPerAxis - 0.5, fz = z / bladesPerAxis - 0.5
-      // px = fx * grassAreaSize, pz = fz * grassAreaSize
       const fx = gridX.div(bladesPerAxis).sub(0.5);
       const fz = gridZ.div(bladesPerAxis).sub(0.5);
       const px = fx.mul(grassAreaSize);
       const pz = fz.mul(grassAreaSize);
       const instancePosRaw = vec3(px, float(0.0), pz);
 
-      // Calculate world position by adding group offset (for seed calculation consistency)
-      // Using uGroupOffset instead of uModelMatrix ensures seed is based on world position only
-      // This way, any blade at the same world grid cell will have the same seed, regardless of which instance it is
       const worldPosRaw = instancePosRaw.add(uniforms.uGroupOffset);
 
       // Calculate world grid cell using grid cell size (for infinite grass)
       const worldGridX = floor(worldPosRaw.x.div(uniforms.uGridCellSize));
       const worldGridZ = floor(worldPosRaw.z.div(uniforms.uGridCellSize));
 
-      // Calculate jitter using seededRandom function with WORLD grid cell (for consistency)
-      // Seed is based on world grid cell, so blades at same world position have same jitter
-      const seedBase = worldGridX
+      const safeGridPos = getSafeHashPos(vec2(worldGridX, worldGridZ));
+
+      const seedBase = safeGridPos.x
         .mul(7919.0)
-        .add(worldGridZ.mul(7919.0))
+        .add(safeGridPos.y.mul(7919.0))
         .mul(0.0001);
       const jitterX = seededRandom(seedBase).sub(0.5).mul(0);
       const jitterZ = seededRandom(seedBase.add(1.0)).sub(0.5).mul(0);
@@ -356,8 +353,6 @@ export function createGrassCompute(
         instancePosRaw.z.add(jitterZ)
       );
 
-      // Transform to world space by adding group offset
-      // Since group only has translation (no rotation/scale), simple addition is sufficient
       // Return world position directly
       return instancePosLocal.add(uniforms.uGroupOffset);
     });
@@ -373,6 +368,7 @@ export function createGrassCompute(
 
     // Get worldXZ position (x and z components) - now in world space for consistent clumping/wind
     const worldXZ = vec2(worldPos.x, worldPos.z);
+    const safeWorldXZ = getSafeHashPos(worldXZ);
 
     // Calculate Voronoi clump information with attribute blending
     const { toCenter, bestCellId, secondBestCellId, centerFactor } = getClumpInfo(worldXZ);
@@ -393,13 +389,13 @@ export function createGrassCompute(
       type: params1.type
     };
 
-    const bladeParams = getBladeParams(worldXZ, clumpParams);
+    const bladeParams = getBladeParams(safeWorldXZ, clumpParams);
 
     // Calculate presence using blendFactor (1.0 at center, 0.5 at boundary)
     // This creates smooth transitions without gaps
     const presence = blendFactor;
     
-    const perBladeHash01 = hash11(dot(worldXZ, vec2(37.0, 17.0)));
+    const perBladeHash01 = hash11(dot(safeWorldXZ, vec2(37.0, 17.0)));
     const clumpSeed01 = hash11(dot(bestCellId, vec2(47.3, 61.7)));
 
     // Calculate blade facing angle (use bestCellId for consistency)

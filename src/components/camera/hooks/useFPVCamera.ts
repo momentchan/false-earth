@@ -90,7 +90,6 @@ export function useFPVCamera({
 
       let activeTouch: Touch | null = null;
       
-      // 尋找當前有效的觸控點
       for (let i = 0; i < e.touches.length; i++) {
         const t = e.touches[i];
         if (isValidTouchArea(t)) {
@@ -180,6 +179,8 @@ export function useFPVCamera({
 
       camera.position.copy(vec3);
       camera.quaternion.copy(quat);
+
+      camera.updateMatrixWorld(true)
     }
   });
 }

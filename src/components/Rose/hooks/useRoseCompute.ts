@@ -72,7 +72,7 @@ export function useRoseCompute(
             camera.matrixWorldInverse
         )
         uniforms.uCameraPosition.value.copy(camera.position)
-        uniforms.uDeltaTime.value = delta
+        uniforms.uDeltaTime.value = Math.min(delta, 0.1)
 
         renderer.compute(computeRefs.current.reset)
         renderer.compute(computeRefs.current.spawn)

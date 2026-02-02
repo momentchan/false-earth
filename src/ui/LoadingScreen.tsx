@@ -104,7 +104,7 @@ export function LoadingScreen() {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         color: 'white', fontFamily: 'Cousine',
         pointerEvents: 'auto', // Blocks clicks to 3D scene
-        fontSize: isMobile ? '0.7rem' : '0.9rem',
+        fontSize: isMobile ? '0.8rem' : '0.9rem',
         opacity: 0.99, // Prevent culling
     };
 
@@ -118,8 +118,8 @@ export function LoadingScreen() {
     return (
         <div ref={containerRef} style={containerStyle}>
             <div className='entry' style={{
-                opacity: 1, textAlign: 'center', maxWidth: isMobile ? '90%' : '600px',
-                padding: '20px', animation: 'fadeIn 2s ease'
+                opacity: 1, textAlign: 'center', maxWidth: isMobile ? '100%' : '600px',
+                padding: '40px', animation: 'fadeIn 2s ease'
             }}>
 
                 {/* Title */}
