@@ -6,7 +6,7 @@ import { Terrain } from "../components/Terrain";
 import { DirectionalLight } from "../components/DirectionalLight";
 import { WebGPURenderer } from "three/webgpu";
 import GrassWebGPU from "../components/grass/GrassWebGPU";
-import Effects from "../components/Effects";
+import Effects from "../components/Effects/Effects";
 import { Character } from "../components/character";
 import { useGameStore } from "../core/store/gameStore";
 import { CameraViewControl } from "../components/camera/CameraViewControl";
