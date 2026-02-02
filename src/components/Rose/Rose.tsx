@@ -7,6 +7,7 @@ import { useRoseUniforms } from "./hooks/useRoseUniforms";
 import { useRoseCompute } from "./hooks/useRoseCompute";
 import { useKTX2Texture } from "../../core/utils/useKTX2Texture";
 import { ROSE_TEXTURES } from "./core/config";
+import { useFrame } from "@react-three/fiber";
 
 export type RoseHandle = {
     spawn: (pos: THREE.Vector3, count?: number, radius?: number) => void
@@ -19,7 +20,9 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
     const textures = useKTX2Texture(ROSE_TEXTURES)
     const terrainUniforms = useGameStore((state) => state.terrainUniforms)
     const windUniforms = useGameStore((state) => state.windUniforms)
-    
+    const characterRef = useGameStore((state) => state.characterRef)
+    const characterPos = useMemo(() => new THREE.Vector3(), [])
+
     const { uniforms, config } = useRoseUniforms()
 
     const geometry = useMemo(() => {
@@ -64,6 +67,15 @@ const Rose = forwardRef<RoseHandle, { count: number }>(({ count }, ref) => {
         material.metalness = config.metalness
         material.roughness = config.roughness
     }, [config.metalness, config.roughness])
+
+
+
+    useFrame(() => {
+        if (!characterRef?.current) return
+        characterRef.current.getWorldPosition(characterPos)
+        uniforms.mat.uCharacterWorldPos.value.copy(characterPos)
+        uniforms.compute.uCharacterWorldPos.value.copy(characterPos)
+    })
     
     useImperativeHandle(ref, () => ({ spawn }), [spawn]);
 

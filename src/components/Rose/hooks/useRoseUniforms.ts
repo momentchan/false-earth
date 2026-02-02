@@ -54,6 +54,7 @@ export function useRoseUniforms() {
         uEmissiveIntensity: uniform(0),
         uFresnelPower: uniform(0),
         uFresnelIntensity: uniform(0),
+        uCharacterWorldPos: uniform(new THREE.Vector3()),
       },
       compute: {
         uDelayMin: uniform(0),
@@ -65,6 +66,9 @@ export function useRoseUniforms() {
         uDieMin: uniform(0),
         uDieMax: uniform(0),
         uViewProjectionMatrix: uniform(new THREE.Matrix4()),
+        uCameraPosition: uniform(new THREE.Vector3()),
+        uDeltaTime: uniform(0),
+        uCharacterWorldPos: uniform(new THREE.Vector3()),
       },
     }),
     []

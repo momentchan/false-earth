@@ -42,6 +42,12 @@ import {
   mat3,
   faceDirection,
   materialRoughness,
+  distance,
+  atan,
+  cos,
+  sin,
+  degrees,
+  sqrt,
 } from "three/tsl";
 import { VATMeta } from "./config";
 import { TerrainUniforms } from "../../../core/types";
@@ -119,8 +125,28 @@ export function createVATMaterial(
   const terrainNormalFn = terrainHeightFn ? getTerrainNormal(terrainHeightFn) : null;
 
   const applyRotation = Fn(([vec]: [any]) => {
-    const xzRotated = mx_rotate2d(vec2(vec.x, vec.z), seed.mul(360));
-    let result = vec3(xzRotated.x, vec.y, xzRotated.y);
+    const randomAngleRad = seed.mul(2 * Math.PI);
+    const randDir = vec2(sin(randomAngleRad), cos(randomAngleRad));
+
+    const toChar = uniforms.uCharacterWorldPos.xz.sub(instancePos.xz);
+    const safeToChar = toChar.add(1e-6); 
+    const charDir = normalize(safeToChar);
+
+    const dist = length(toChar);
+    const lookRadius = float(3.0);
+    const lookFactor = smoothstep(lookRadius, float(0.5), dist);
+
+    const rawBlend = mix(randDir, charDir, lookFactor.mul(0.2));
+    const safeBlend = rawBlend.add(1e-6);
+    const finalDir = normalize(safeBlend);
+
+    const cosTheta = finalDir.y;
+    const sinTheta = finalDir.x;
+
+    const xNew = vec.x.mul(cosTheta).sub(vec.z.mul(sinTheta));
+    const zNew = vec.x.mul(sinTheta).add(vec.z.mul(cosTheta));
+    
+    let result = vec3(xNew, vec.y, zNew);
 
     if (terrainNormalFn) {
       const tn = terrainNormalFn(instancePos.xz);
@@ -146,8 +172,9 @@ export function createVATMaterial(
 
     let worldPos = positionLocal.add(localPos).add(instancePos);
 
+    const heightFactor = smoothstep(float(0.0), float(0.08), vatPos.y.abs()).mul(0.2);
+
     if (windUniforms) {
-      const heightFactor = smoothstep(float(0.0), float(0.08), vatPos.y.abs()).mul(0.2);
       const windDirNorm = safeNormalize(windUniforms.uWindDir);
       const windStrength = calculateWindStrength(instancePos.xz, {
         uWindDir: windUniforms.uWindDir,
@@ -159,6 +186,19 @@ export function createVATMaterial(
       const sway = vec3(windDirNorm.x, 0.0, windDirNorm.y).mul(windStrength.mul(heightFactor));
       worldPos = worldPos.add(sway);
     }
+
+
+    const charPos = uniforms.uCharacterWorldPos;
+    const dirToFlower = instancePos.xz.sub(charPos.xz); 
+    const dist = length(dirToFlower);
+
+    const radius = float(1);
+    const maxPush = float(2.0);
+    
+    const pushFactor = smoothstep(radius, float(0.2), dist);
+    const pushDir = normalize(dirToFlower);
+    const pushVec = vec3(pushDir.x, float(-0.3), pushDir.y).mul(pushFactor).mul(maxPush).mul(heightFactor);
+    worldPos = worldPos.add(pushVec);
 
     if (terrainHeightFn) {
       worldPos.y.addAssign(terrainHeightFn(instancePos.xz));
@@ -237,15 +277,8 @@ export function createVATMaterial(
   })();
 
   // material.fragmentNode = Fn(() => {
-  //   const u = mix(uv(0).x, uv(0).y, isPetal);
-  //   const s = smoothstep(0.0, 1, u);
-  //   const t = time.add(seed.mul(123.0)).mul(-0.5);
-  //   const d = smoothstep(0.3, 0.0, abs(u.sub(mix(-0.2, 1.2, fract(t))))).mul(s).mul(oneMinus(s));
-  //   const vatPos = texture(posTex, sampleUV).rgb;
-  //   const heightFactor = smoothstep(float(0.0), float(0.08), vatPos.y.abs());
-
-  //   return vec4(materialRoughness, 0, 0, 1.0);
-  //   return vec4(oneMinus(heightFactor), 0, 0.0, 1.0);
+  //   const distToCharacter = distance(instancePos, uniforms.uCharacterWorldPos);
+  //   return step(distToCharacter, 1);
   // })();
 
   return material;

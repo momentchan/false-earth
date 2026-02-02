@@ -1,8 +1,11 @@
-import { atomicAdd, atomicStore, storage, uint, instanceIndex, instancedArray, hash, If, time, Fn, float, fract, mix, step, vec3, sin, cos, sqrt, floor, vec4,
+import {
+    atomicAdd, atomicStore, storage, uint, instanceIndex, instancedArray, hash, If, time, Fn, float, fract, mix, step, vec3, sin, cos, sqrt, floor, vec4,
     cameraViewMatrix,
     cameraProjectionMatrix,
-    abs
- } from "three/tsl";
+    abs,
+    distance,
+    smoothstep
+} from "three/tsl";
 
 /**
  * Create update compute shader
@@ -17,25 +20,12 @@ export function createUpdateCompute(
     uniforms: Record<string, any>,
 ) {
     const updateFn = Fn(() => {
-        /**
-         * Easing function: easeInOutCubic
-         * Provides smooth acceleration and deceleration
-         */
-        const easeInOutCubic = (t: any) => {
-            const clampedT = t.clamp(0.0, 1.0);
-            const val1 = clampedT.mul(clampedT).mul(clampedT).mul(4.0);
-            const p = clampedT.sub(1.0);
-            const val2 = p.mul(p).mul(p).mul(4.0).add(1.0);
-            const isSecondHalf = step(0.5, clampedT);
-            return mix(val1, val2, isSecondHalf);
-        };
-
         const data = vatData.element(instanceIndex)
 
         // Simple animation logic: if active, update frame
         If(data.get("isActive").greaterThan(0), () => {
             const seed = data.get("seed")
-            const age = time.sub(data.get("startTime"))
+            const pos = data.get("position")
 
             // Use seed to interpolate between min/max for each phase duration
             const delayDuration = mix(uniforms.uDelayMin, uniforms.uDelayMax, seed)
@@ -50,12 +40,27 @@ export function createUpdateCompute(
             const p3 = delayDuration.add(growDuration).add(keepDuration).div(lifetime) // Keep phase boundary
             // p3 ~ 1.0: Die phase
 
-            const progress = age.div(lifetime)
+            // grow speed up
+            const currentAge = data.get("age");
+            // const growStartTime = delayDuration;
+            // const growEndTime = delayDuration.add(growDuration);
+            // const afterStart = step(growStartTime, currentAge);
+            // const beforeEnd = float(1.0).sub(step(growEndTime, currentAge));
+            // const isGrowing = afterStart.mul(beforeEnd);
+            // const distToChar = distance(pos, uniforms.uCharacterWorldPos);
+            // const speedMultiplier = mix(float(1.0), float(10), smoothstep(float(2.0), float(0), distToChar));
+            // const finalSpeed = mix(float(1.0), speedMultiplier, isGrowing);
+
+            const dt = uniforms.uDeltaTime;
+            currentAge.addAssign(dt.mul(1));
+
+            const progress = currentAge.div(lifetime)
 
             If(progress.greaterThan(1.0), () => {
                 data.get("isActive").assign(0.0)
                 data.get("progress").assign(0.0)
                 data.get("frame").assign(0.0)
+                data.get("age").assign(0.0)
             }).Else(() => {
                 const currentFrame = float(0.0).toVar();
 
@@ -87,20 +92,21 @@ export function createUpdateCompute(
 
                 const pos = data.get("position")
                 const clipPos = uniforms.uViewProjectionMatrix.mul(vec4(pos, 1.0))
-
                 const cullRadius = float(3)
                 const w = clipPos.w;
+
+                const isInFront = w.greaterThan(cullRadius.negate());
                 const limit = w.add(cullRadius);
 
-                const inFrustum = 
-                    abs(clipPos.x).lessThanEqual(limit)
+                const inFrustum = isInFront
+                    .and(abs(clipPos.x).lessThanEqual(limit))
                     .and(abs(clipPos.y).lessThanEqual(limit))
-                    .and(clipPos.z.greaterThanEqual(cullRadius.negate())) // Near plane (allow slightly behind)
                     .and(clipPos.z.lessThanEqual(limit));
 
+                const distToCamera = distance(pos, uniforms.uCameraPosition);
+                const inCircle = distToCamera.lessThan(5);
 
-
-                If(inFrustum, () => {
+                If(inFrustum.or(inCircle), () => {
                     const idx = atomicAdd(drawStorage.get("instanceCount"), uint(1))
                     indices.element(idx).assign(uint(instanceIndex))
                 })
@@ -164,7 +170,7 @@ export function createSpawnCompute(
             instance.get('position').assign(randomPos);
             instance.get('isActive').assign(1.0);
             instance.get('frame').assign(0.0);
-            instance.get('startTime').assign(time.add(timeOffset));
+            instance.get('age').assign(timeOffset.negate());
             instance.get('seed').assign(fract(seed.add(seed2).add(seed3)));
             instance.get('progress').assign(0.0);
         })
