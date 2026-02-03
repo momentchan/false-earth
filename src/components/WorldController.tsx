@@ -100,24 +100,22 @@ export function WorldController() {
         )}
 
 
-        <Suspense fallback={null}>
-            {enableRose && (
-                <AsyncCompile id="rose">
-                    <Rose count={2000} />
-                </AsyncCompile>
-            )}
+        {enableRose && (
+            <AsyncCompile id="rose">
+                <Rose count={2000} />
+            </AsyncCompile>
+        )}
 
-            {enableGrass && (
-                <AsyncCompile id="grass">
-                    <GrassWebGPU />
-                </AsyncCompile>
-            )}
+        {enableGrass && (
+            <AsyncCompile id="grass">
+                <GrassWebGPU />
+            </AsyncCompile>
+        )}
 
-            {enableCharacter && (
-                <AsyncCompile id="character">
-                    <Character position={[0, 0, 0]} scale={1} />
-                </AsyncCompile>
-            )}
-        </Suspense>
+        {enableCharacter && (
+            <AsyncCompile id="character">
+                <Character position={[0, 0, 0]} scale={1} />
+            </AsyncCompile>
+        )}
     </>
 }

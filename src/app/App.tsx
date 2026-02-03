@@ -1,7 +1,7 @@
 import { Environment } from "@react-three/drei";
 import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
-import { useEffect, Suspense } from "react";
+import { useEffect, Suspense, useMemo } from "react";
 import { DirectionalLight } from "../components/DirectionalLight";
 import { WebGPURenderer } from "three/webgpu";
 import Effects from "../components/Effects/Effects";
@@ -15,11 +15,15 @@ import { preloadVATAssets } from "../components/Rose/core";
 import { WorldController } from "../components/WorldController";
 import { WebGpuPerf } from "../debug/WebGPUPerf";
 import { Inspector } from 'three/addons/inspector/Inspector.js';
+import { createContext } from "react";
+import * as THREE from "three/webgpu";
 
 preloadVATAssets('/vat/Rose_meta.json');
 
+export const BeamSceneContext = createContext<THREE.Scene | null>(null);
 
 export default function App() {
+    const beamScene = useMemo(() => new THREE.Scene(), []);
 
     const toggleCameraMode = useGameStore((state) => state.toggleCameraMode);
     useEffect(() => {
@@ -63,19 +67,24 @@ export default function App() {
             performance={{ min: 0.5, max: 1 }}
         >
             <AudioManager />
-            <WorldController />
             {/* <WebGpuPerf /> */}
             {/* <StatsGl /> */}
 
             <Suspense fallback={null}>
-                <color attach="background" args={['#000000']} />
-                <CameraViewControl />
-                <Environment
-                    files="/textures/potsdamer_platz_1k_nb.hdr"
-                    environmentIntensity={0.5}
-                />
-                <DirectionalLight />
-                <Effects />
+                <BeamSceneContext.Provider value={beamScene}>
+                    <Suspense fallback={null}>
+                        <WorldController />
+                    </Suspense>
+
+                    <color attach="background" args={['#000000']} />
+                    <CameraViewControl />
+                    <Environment
+                        files="/textures/potsdamer_platz_1k_nb.hdr"
+                        environmentIntensity={0.5}
+                    />
+                    <DirectionalLight />
+                    <Effects />
+                </BeamSceneContext.Provider>
             </Suspense>
         </Canvas>
     </>

@@ -9,12 +9,15 @@ import { smaa } from "three/addons/tsl/display/SMAANode.js";
 
 import { useGameStore, CameraMode } from "../../core/store/gameStore";
 import { useEffectsControls } from "./useEffectsControls";
+import { BeamSceneContext } from "../../app/App";
+import { useContext } from "react";
 
 export default function Effects() {
   const { isHighQuality, cameraMode, bloom: bloomCfg, dof: dofCfg, toneMapping: tmCfg, smaa: smaaEnabled } = useEffectsControls();
 
   const characterRef = useGameStore((state) => state.characterRef);
   const { gl, scene, camera } = useThree();
+  const beamScene = useContext(BeamSceneContext);
 
   const postProcessingRef = useRef<THREE.PostProcessing | null>(null);
 
@@ -29,17 +32,6 @@ export default function Effects() {
   });
 
   const vecCache = useMemo(() => ({ cam: new THREE.Vector3(), char: new THREE.Vector3() }), []);
-
-  const sceneCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
-  const beamCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
-
-  useEffect(() => {
-    sceneCamera.layers.disableAll();
-    sceneCamera.layers.enable(0);
-
-    beamCamera.layers.disableAll();
-    beamCamera.layers.enable(1);
-  }, []);
 
   useEffect(() => {
     uParams.current.bloomThresh.value = bloomCfg.threshold;
@@ -67,13 +59,11 @@ export default function Effects() {
     const pp = new THREE.PostProcessing(renderer);
     postProcessingRef.current = pp;
 
-    beamCamera.copy(camera);
-
-    const scenePass = pass(scene, sceneCamera);
+    const scenePass = pass(scene, camera);
     const sceneTex = scenePass.getTextureNode('output');
     const sceneDepth = scenePass.getViewZNode();
 
-    const beamPass = pass(scene, beamCamera);
+    const beamPass = pass(beamScene as THREE.Scene, camera);
     const beamColor = beamPass.getTextureNode('output');
     const beamDepth = beamPass.getViewZNode();
 
@@ -154,12 +144,6 @@ export default function Effects() {
       characterRef.current.getWorldPosition(vecCache.char);
       uParams.current.focusDist.value = vecCache.cam.distanceTo(vecCache.char);
     }
-
-    sceneCamera.copy(camera);
-    beamCamera.copy(camera);
-
-    sceneCamera.layers.mask = 1; 
-    beamCamera.layers.mask = 2;  
 
     postProcessingRef.current.render();
 
