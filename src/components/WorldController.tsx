@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useControls } from 'leva';
 import * as THREE from 'three/webgpu';
@@ -16,8 +16,35 @@ import {
     uTerrainSeed,
     uTerrainColor,
 } from '../core/shaders/uniforms';
+import { CosmicSystem } from './cosmic/CosmicSystem';
+import { Terrain } from './Terrain';
+import { StarrySky } from './background/StarrySky';
+import { useGameStore } from '../core/store/gameStore';
+import { AsyncCompile } from '../core/utils/AsyncCompile';
+import Rose, { RoseHandle } from './Rose/Rose';
+import GrassWebGPU from './grass/GrassWebGPU';
+import { Character } from './character';
+
 
 export function WorldController() {
+    const roseRef = useRef<RoseHandle>(null)
+    const setRoseRef = useGameStore((state) => state.setRoseRef);
+
+    useEffect(() => {
+        setRoseRef(roseRef);
+        return () => setRoseRef(null);
+    }, [setRoseRef]);
+
+    const setActiveTargets = useGameStore((state) => state.setActiveTargets);
+
+    const { enableEnv, enableRose, enableGrass, enableCharacter } = useControls('Game.Content', {
+        enableEnv: { value: true, label: 'Environment' },
+        enableRose: { value: true, label: '🌹 Rose Field' },
+        enableGrass: { value: true, label: '🌿 Grass Field' },
+        enableCharacter: { value: true, label: '👤 Character' },
+    }, { collapsed: true });
+
+
     const { timeScale, globalHue } = useControls('Game.System', {
         timeScale: { value: 1.0, min: 0.0, max: 2.0, label: 'Game Speed' },
         globalHue: { value: 0.0, min: 0.0, max: 1.0, label: 'Global Hue' },
@@ -55,6 +82,14 @@ export function WorldController() {
         uTerrainColor.value.set(c.r, c.g, c.b);
     }, [terrainParams]);
 
+    useEffect(() => {
+        const targets: string[] = [];
+        if (enableRose) targets.push('rose');
+        if (enableGrass) targets.push('grass');
+        if (enableCharacter) targets.push('character');
+        setActiveTargets(targets);
+    }, [enableRose, enableGrass, enableCharacter, setActiveTargets]);
+
     useFrame((_state, rawDelta) => {
         const delta = Math.min(rawDelta, 0.1);
         uGlobalHueShift.value = globalHue;
@@ -63,5 +98,34 @@ export function WorldController() {
         uDeltaTime.value = delta * timeScale;
     });
 
-    return null;
+    return <>
+        {enableEnv && (
+            <>
+                <StarrySky />
+                <CosmicSystem />
+                <Terrain />
+            </>
+        )}
+
+
+        <Suspense fallback={null}>
+            {enableRose && (
+                <AsyncCompile id="rose">
+                    <Rose ref={roseRef} count={2000} />
+                </AsyncCompile>
+            )}
+
+            {enableGrass && (
+                <AsyncCompile id="grass">
+                    <GrassWebGPU />
+                </AsyncCompile>
+            )}
+
+            {enableCharacter && (
+                <AsyncCompile id="character">
+                    <Character position={[0, 0, 0]} scale={1} />
+                </AsyncCompile>
+            )}
+        </Suspense>
+    </>
 }

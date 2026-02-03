@@ -17,7 +17,6 @@ export default function Effects() {
   const { gl, scene, camera } = useThree();
 
   const postProcessingRef = useRef<THREE.PostProcessing | null>(null);
-  const beamCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
 
   const uParams = useRef({
     focusDist: uniform(0),
@@ -30,6 +29,17 @@ export default function Effects() {
   });
 
   const vecCache = useMemo(() => ({ cam: new THREE.Vector3(), char: new THREE.Vector3() }), []);
+
+  const sceneCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
+  const beamCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
+
+  useEffect(() => {
+    sceneCamera.layers.disableAll();
+    sceneCamera.layers.enable(0);
+
+    beamCamera.layers.disableAll();
+    beamCamera.layers.enable(1);
+  }, []);
 
   useEffect(() => {
     uParams.current.bloomThresh.value = bloomCfg.threshold;
@@ -59,7 +69,7 @@ export default function Effects() {
 
     beamCamera.copy(camera);
 
-    const scenePass = pass(scene, camera);
+    const scenePass = pass(scene, sceneCamera);
     const sceneTex = scenePass.getTextureNode('output');
     const sceneDepth = scenePass.getViewZNode();
 
@@ -145,17 +155,14 @@ export default function Effects() {
       uParams.current.focusDist.value = vecCache.cam.distanceTo(vecCache.char);
     }
 
+    sceneCamera.copy(camera);
     beamCamera.copy(camera);
 
-    camera.layers.disableAll();
-    camera.layers.enable(0);
-
-    beamCamera.layers.disableAll();
-    beamCamera.layers.enable(1);
+    sceneCamera.layers.mask = 1; 
+    beamCamera.layers.mask = 2;  
 
     postProcessingRef.current.render();
 
-    camera.layers.enableAll();
   }, 1);
 
   return null;

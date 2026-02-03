@@ -20,9 +20,21 @@ export default function AudioButton() {
 
     useEffect(() => {
         if (isGameStarted) {
-            setIsSoundOn(true);
+            // setIsSoundOn(true);
         }
     }, [isGameStarted]);
+
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key.toLowerCase() !== 'm') return;
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+            e.preventDefault();
+            setIsSoundOn(!isSoundOn);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isSoundOn, setIsSoundOn]);
 
     return (
         <WebGPUCanvas

@@ -3,12 +3,6 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { useGameStore } from "../core/store/gameStore";
 import gsap from "gsap";
 
-// --- Constants & Config ---
-const EXPECTED_COMPONENTS = ['grass', 'rose', 'character'];
-const FADE_OUT_DURATION = 1;
-
-// --- Sub-Components (Icons & UI Elements) ---
-
 const Key = ({ children }: { children: React.ReactNode }) => (
     <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -47,7 +41,8 @@ const InstructionRow = ({ input, label }: { input: React.ReactNode, label: strin
 export function LoadingScreen() {
     // Store & Hooks
     const { active, progress: downloadProgress } = useProgress();
-    const componentsReady = useGameStore((state) => state.componentsReady) as Record<string, boolean>;
+    const activeTargets = useGameStore((state) => state.activeTargets);
+    const readyStatus = useGameStore((state) => state.readyStatus);
     const isMobile = useGameStore((state) => state.isMobile);
     const setIsGameStarted = useGameStore((state) => state.setIsGameStarted);
 
@@ -56,28 +51,21 @@ export function LoadingScreen() {
     const [isVisible, setIsVisible] = useState(true);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Combined progress: 50% for download, 50% for shader compilation/component readiness
-    const displayProgress = useMemo(() => {
-        const readyCount = EXPECTED_COMPONENTS.filter(id => !!componentsReady[id]).length;
-        const totalExpected = EXPECTED_COMPONENTS.length;
-        const compileProgress = (readyCount / totalExpected) * 100.0;
+    const total = activeTargets.length;
+    const loaded = activeTargets.filter((id) => readyStatus[id]).length;
+    const compileProgress = total === 0 ? 0 : (loaded / total) * 100;
 
-        let total = 0;
-        if (active) {
-            total = downloadProgress * 0.5;
-        } else {
-            total = 50 + (compileProgress * 0.5);
-        }
-        return Math.min(Math.round(total), 99);
-    }, [active, downloadProgress, componentsReady]);
+    const displayProgress = useMemo(() => {
+        if (active) return Math.round(downloadProgress * 0.5);
+        return Math.min(Math.round(50 + compileProgress * 0.5), 99);
+    }, [active, downloadProgress, compileProgress]);
 
     useEffect(() => {
-        const readyCount = EXPECTED_COMPONENTS.filter(id => !!componentsReady[id]).length;
-        if (readyCount >= EXPECTED_COMPONENTS.length && !active) {
+        if (!active && loaded === total && total > 0) {
             const t = setTimeout(() => setIsReadyToStart(true), 200);
             return () => clearTimeout(t);
         }
-    }, [componentsReady, active]);
+    }, [active, loaded, total]);
 
     const handleStart = () => {
         if (!isReadyToStart) return;
@@ -88,7 +76,7 @@ export function LoadingScreen() {
         if (containerRef.current) {
             gsap.to(containerRef.current, {
                 opacity: 0,
-                duration: FADE_OUT_DURATION,
+                duration: 1,
                 ease: "power2.inOut",
                 onComplete: () => setIsVisible(false)
             });

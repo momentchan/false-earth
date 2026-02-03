@@ -16,12 +16,17 @@ export function AsyncCompile({ children, id }: AsyncCompileProps) {
   const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
+    let isMounted = true
     if (groupRef.current) {
       gl.compileAsync(groupRef.current, camera).then(() => {
-        // console.log(`[⚡ Compiled] ${id}`)
+        if (!isMounted) return
         setIsReady(true)
-        setComponentReady(id as 'rose' | 'grass' | 'character')
+        setComponentReady(id, true)
       })
+    }
+    return () => {
+      isMounted = false
+      setComponentReady(id, false)
     }
   }, [gl, camera, id, setComponentReady])
 

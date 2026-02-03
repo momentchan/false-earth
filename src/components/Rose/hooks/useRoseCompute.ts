@@ -45,14 +45,14 @@ export function useRoseCompute(
 
         // Indirect Draw Setup
         const indexCount = geometry.index ? geometry.index.count : geometry.attributes.position.count
-        const drawBuffer = new THREE.IndirectStorageBufferAttribute(new Uint32Array(indexCount), indexCount)
+        const drawBuffer = new THREE.IndirectStorageBufferAttribute(new Uint32Array(5), 5)
         const drawStorage = storage(drawBuffer, drawIndirectStructure, 1)
         geometry.setIndirect(drawBuffer)
 
         // Compute Shaders
-        const resetCompute = createResetCompute(drawStorage, indexCount)
-        const spawnCompute = createSpawnCompute(vatData, spawnStorage, spawnUniforms, BATCH_SIZE, count)
-        const updateCompute = createUpdateCompute(drawStorage, visibleIndices, vatData, count, uniforms)
+        const resetCompute = createResetCompute(drawStorage, indexCount).setName('RoseReset')
+        const spawnCompute = createSpawnCompute(vatData, spawnStorage, spawnUniforms, BATCH_SIZE, count).setName('RoseSpawn')
+        const updateCompute = createUpdateCompute(drawStorage, visibleIndices, vatData, count, uniforms).setName('RoseUpdate')
 
         computeRefs.current = { reset: resetCompute, spawn: spawnCompute, update: updateCompute }
     }, [geometry, uniforms])

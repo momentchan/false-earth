@@ -48,8 +48,8 @@ export function useGrassCompute(
         setLodBuffers(configs)
 
         computeRefs.current = {
-            main: createGrassCompute(grassData, positions, configs, uniforms.compute).computeFn().compute(grassBlades),
-            reset: createResetDrawBufferCompute(configs),
+            main: createGrassCompute(grassData, positions, configs, uniforms.compute).computeFn().compute(grassBlades).setName('GrassUpdate'),
+            reset: createResetDrawBufferCompute(configs).setName('GrassReset'),
         }
 
         return () => {

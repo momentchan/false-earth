@@ -23,8 +23,13 @@ interface GameState {
   roseRef: React.MutableRefObject<RoseHandle | null> | null;
   setRoseRef: (ref: React.MutableRefObject<RoseHandle | null> | null) => void;
 
-  componentsReady: { rose: boolean; grass: boolean; character: boolean };
-  setComponentReady: (key: 'rose' | 'grass' | 'character') => void;
+  activeTargets: string[];
+  setActiveTargets: (targets: string[]) => void;
+
+  readyStatus: Record<string, boolean>;
+  setComponentReady: (id: string, isReady: boolean) => void;
+
+  isSceneReady: () => boolean;
 
   isGameStarted: boolean;
   setIsGameStarted: (loaded: boolean) => void;
@@ -45,7 +50,7 @@ interface GameState {
   setControlEnabled: (enabled: boolean) => void;
 }
 
-export const useGameStore = create<GameState>((set) => ({
+export const useGameStore = create<GameState>((set, get) => ({
   // ===== Camera State =====
   cameraMode: CameraMode.Follow,
   setCameraMode: (mode) => set({ cameraMode: mode }),
@@ -60,13 +65,19 @@ export const useGameStore = create<GameState>((set) => ({
   roseRef: null,
   setRoseRef: (ref) => set({ roseRef: ref }),
 
-  componentsReady: { rose: false, grass: false, character: false },
-  setComponentReady: (key) => set((state) => ({
-    componentsReady: {
-      ...state.componentsReady,
-      [key]: true
-    }
+  activeTargets: [],
+  setActiveTargets: (targets) => set({ activeTargets: targets }),
+
+  readyStatus: {},
+  setComponentReady: (id, isReady) => set((state) => ({
+    readyStatus: { ...state.readyStatus, [id]: isReady }
   })),
+
+  isSceneReady: () => {
+    const { activeTargets, readyStatus } = get();
+    if (activeTargets.length === 0) return false;
+    return activeTargets.every((target) => readyStatus[target] === true);
+  },
 
   isGameStarted: false,
   setIsGameStarted: (loaded) => set({ isGameStarted: loaded }),
