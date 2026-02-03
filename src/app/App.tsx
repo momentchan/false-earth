@@ -55,7 +55,7 @@ export default function App() {
                 });
                 renderer.setClearColor('#000000');
                 renderer.autoClear = true;
-                renderer.inspector = new Inspector();
+                // renderer.inspector = new Inspector();
 
                 return renderer.init().then(() => renderer);
             }}
@@ -64,7 +64,7 @@ export default function App() {
         >
             <AudioManager />
             <WorldController />
-            <WebGpuPerf />
+            {/* <WebGpuPerf /> */}
             {/* <StatsGl /> */}
 
             <Suspense fallback={null}>
