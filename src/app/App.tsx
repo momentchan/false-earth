@@ -13,6 +13,8 @@ import { UI } from "../ui/UI";
 import { useKeyboard } from "../core/input/useKeyboard";
 import { preloadVATAssets } from "../components/Rose/core";
 import { WorldController } from "../components/WorldController";
+import { WebGpuPerf } from "../debug/WebGPUPerf";
+import { Inspector } from 'three/addons/inspector/Inspector.js';
 
 preloadVATAssets('/vat/Rose_meta.json');
 
@@ -53,7 +55,7 @@ export default function App() {
                 });
                 renderer.setClearColor('#000000');
                 renderer.autoClear = true;
-
+                renderer.inspector = new Inspector();
 
                 return renderer.init().then(() => renderer);
             }}
@@ -62,6 +64,8 @@ export default function App() {
         >
             <AudioManager />
             <WorldController />
+            <WebGpuPerf />
+            {/* <StatsGl /> */}
 
             <Suspense fallback={null}>
                 <color attach="background" args={['#000000']} />

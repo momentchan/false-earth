@@ -20,7 +20,7 @@ export default function AudioButton() {
 
     useEffect(() => {
         if (isGameStarted) {
-            // setIsSoundOn(true);
+            setIsSoundOn(true);
         }
     }, [isGameStarted]);
 
