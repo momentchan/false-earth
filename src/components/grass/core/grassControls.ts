@@ -40,12 +40,6 @@ export function createGrassControls() {
         rimPos: { value: 0.42, min: 0.0, max: 1.0, step: 0.01 },
         rimSoft: { value: 0.03, min: 0.0, max: 0.1, step: 0.001 },
       }, { collapsed: true }),
-      Noise: folder({
-        noiseFreqX: { value: 5, min: 0.1, max: 10.0, step: 0.1 },
-        noiseFreqY: { value: 10, min: 0.1, max: 10.0, step: 0.1 },
-        noiseRemapMin: { value: 0.7, min: 0.0, max: 1.0, step: 0.01 },
-        noiseRemapMax: { value: 1.0, min: 0.0, max: 1.0, step: 0.01 },
-      }, { collapsed: true }),
     }, { collapsed: true }),
 
     Animation: folder({

@@ -17,7 +17,8 @@ import {
   floor,
   cross,
   pow,
-  mx_rotate2d,
+  cos,
+  sin,
   mix,
   dot,
   length,
@@ -77,10 +78,12 @@ export function createGrassMaterial(
   const vGeoNormal = varying(vec3(0.0));
   const vHeight = varying(float(0.0));
   const vToCenter = varying(vec2(0.0));
+  const vDistFade = varying(float(0.0));
   const vWorldPos = varying(vec3(0.0));
   const vSide = varying(vec3(0.0));
   const vClumpSeed = varying(float(0.0));
   const vBladeSeed = varying(float(0.0));
+  const vCrackleNoise = varying(float(0.0));
 
   const near = 15;
   const far = 30;
@@ -134,6 +137,11 @@ export function createGrassMaterial(
     const bladeType = floor(data.get("bladeType").toConst().mul(3.0));
 
     const facingAngle = data.get("facingAngle01").toConst().mul(360);
+    const angleRad = facingAngle.radians();
+    const cosA = cos(angleRad);
+    const sinA = sin(angleRad);
+    const rotateFast = (v: any) =>
+      vec2(v.x.mul(cosA).sub(v.y.mul(sinA)), v.x.mul(sinA).add(v.y.mul(cosA)));
 
     // Get wind strength and per-blade hash from compute shader
     const windStrength01 = data.get("windStrength01").toConst();
@@ -219,7 +227,7 @@ export function createGrassMaterial(
     // Use spine with sway instead of original spine
     const lposBase = spineWithSway.add(side.mul(width).mul(widthFactor).mul(s));
 
-    const lposXZ = mx_rotate2d(vec2(lposBase.x, lposBase.z), facingAngle);
+    const lposXZ = rotateFast(vec2(lposBase.x, lposBase.z));
     let lpos = vec3(lposXZ.x, lposBase.y, lposXZ.y);
 
     lpos = applyCharacterPush(
@@ -232,15 +240,15 @@ export function createGrassMaterial(
       uniforms.uCharacterFlattenAmount
     );
 
-    const normalXZ = mx_rotate2d(vec2(normal.x, normal.z), facingAngle);
+    const normalXZ = rotateFast(vec2(normal.x, normal.z));
     let normalRotated = vec3(normalXZ.x, normal.y, normalXZ.y);
 
     // Rotate side vector for fragment shader
-    const sideXZ = mx_rotate2d(vec2(side.x, side.z), facingAngle);
+    const sideXZ = rotateFast(vec2(side.x, side.z));
     let sideRotated = normalize(vec3(sideXZ.x, side.y, sideXZ.y));
 
     // Rotate tangent vector
-    const tangentXZ = mx_rotate2d(vec2(tangent.x, tangent.z), facingAngle);
+    const tangentXZ = rotateFast(vec2(tangent.x, tangent.z));
     let tangentRotated = normalize(vec3(tangentXZ.x, tangent.y, tangentXZ.y));
 
     // Slope Alignment: Align the local "Up" vector (0,1,0) to the "Terrain Normal"
@@ -272,10 +280,15 @@ export function createGrassMaterial(
     const worldPosFinal = worldPos.add(tiltDeltaWorld);
     const worldPosFinal4 = vec4(worldPosFinal.x, worldPosFinal.y, worldPosFinal.z, float(1.0));
 
-    // Write to varyings for fragment shader
+    const noiseScale = float(2.0);
+    const noisePos = worldPosFinal.mul(noiseScale);
+    const movingNoisePos = vec3(noisePos.x, noisePos.y.sub(uTime.mul(2.0)), noisePos.z);
+    vCrackleNoise.assign(mx_noise_float(movingNoisePos));
+
     vGeoNormal.assign(normalRotated);
     vHeight.assign(t);
     vToCenter.assign(toCenter);
+    vDistFade.assign(smoothstep(float(near), float(far), dist));
     vWorldPos.assign(worldPosFinal);
     vSide.assign(sideRotated);
     vClumpSeed.assign(clumpSeed01);
@@ -331,49 +344,22 @@ export function createGrassMaterial(
   material.colorNode = Fn(() => {
     // Base Color (Height Gradient)
     const color = mix(uniforms.uBaseColor, uniforms.uTipColor, vHeight);
-
+    
     // Color Layering
-    const clumpSeedFactor = mix(
-      uniforms.uClumpSeedRange.x,
-      uniforms.uClumpSeedRange.y,
-      vClumpSeed
-    );
-    const bladeSeedFactor = mix(
-      uniforms.uBladeSeedRange.x,
-      uniforms.uBladeSeedRange.y,
-      vBladeSeed
-    );
-    let finalColor = mul(mul(color, clumpSeedFactor), bladeSeedFactor);
+    const clumpSeedFactor = mix(uniforms.uClumpSeedRange.x, uniforms.uClumpSeedRange.y, vClumpSeed);
+    const bladeSeedFactor = mix(uniforms.uBladeSeedRange.x, uniforms.uBladeSeedRange.y, vBladeSeed);
+    let finalColor = color.mul(clumpSeedFactor).mul(bladeSeedFactor);
 
     // Height-based AO (reuse calculateAO)
-    const ao = calculateAO();
-    finalColor = mul(finalColor, ao);
+    finalColor = finalColor.mul(calculateAO());
 
     // Distance-based Shading Simplification
-    const dist = length(cameraPosition.sub(vWorldPos));
-    const distFade = smoothstep(float(near), float(far), dist);
     const grayValue = dot(finalColor, vec3(float(0.333)));
-    const distFadeFactor = distFade.mul(float(0.35));
+    const distFadeFactor = vDistFade.mul(float(0.35));
     finalColor = finalColor
       .mul(oneMinus(distFadeFactor))
       .add(vec3(grayValue).mul(distFadeFactor));
 
-    // Noise
-    const uvCoords = uv();
-    const noiseUv = mul(
-      uvCoords,
-      vec2(uniforms.uNoiseParams.x, uniforms.uNoiseParams.y)
-    ).add(vec2(vBladeSeed, vClumpSeed));
-    const noiseValue = mx_noise_float(noiseUv);
-    // Remap noise from [-1, 1] to [uNoiseParams.z, uNoiseParams.w]
-    const noiseRemapped = remapClamp(
-      noiseValue,
-      float(-1.0),
-      float(1.0),
-      uniforms.uNoiseParams.z,
-      uniforms.uNoiseParams.w
-    );
-    finalColor = mul(finalColor, noiseRemapped);
 
     const hueShifted = shiftHSV(finalColor, vec3(uGlobalHueShift, float(0.0), float(0.0)));
     return vec4(hueShifted, float(1.0));
@@ -410,18 +396,14 @@ export function createGrassMaterial(
 
     // Height Gradient
     const heightFactor = smoothstep(float(0.0), float(1.0), vHeight);
-    const tipGlow = pow(heightFactor, float(1.5));
+    const tipGlow = heightFactor.mul(heightFactor);
 
-    // Noise
-    const noiseScale = float(2);
-    const noisePos = vWorldPos.mul(noiseScale);
-    const noise = mx_noise_float(noisePos);
-    const electricCrackle = noise.mul(0.5).add(1.0);
+    const electricCrackle = vCrackleNoise.mul(0.5).add(1.0);
 
     // Heat Color Ramp
     const coolColor = materialEmissive;
     const hotColor = mix(coolColor, vec3(1.0), float(0.8));
-    const finalColor = mix(coolColor, hotColor, pow(baseStrength, float(2.0)));
+    const finalColor = mix(coolColor, hotColor, baseStrength.mul(baseStrength));
 
     const glow = baseStrength
       .mul(finalColor)
@@ -436,6 +418,7 @@ export function createGrassMaterial(
 
 
   // material.fragmentNode = Fn(() => {
+  //   return vec4(uLodDebugColor, 1.0);
   //   const windStrength01 = data.get("windStrength01").toConst();
   //   return vec4(windStrength01, 0.0, 0.0, 1.0);
   //   return windStrength01;

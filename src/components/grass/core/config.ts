@@ -12,14 +12,14 @@ export const DEFAULT_GRID_DIVISIONS = 1024; // need to be divisible by bladesPer
 // Default LOD segments configuration
 export const DEFAULT_LOD_SEGMENTS_CONFIG = [
   {
-    segments: 10,
+    segments: 15,
     minDistance: 0,
-    maxDistance: 10,
+    maxDistance: 5,
     debugColor: [1, 0, 0] as [number, number, number],
   },
   {
-    segments: 4,
-    minDistance: 10,
+    segments: 3,
+    minDistance: 5,
     maxDistance: 20,
     debugColor: [0, 1, 0] as [number, number, number],
   },

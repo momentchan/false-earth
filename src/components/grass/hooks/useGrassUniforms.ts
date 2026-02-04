@@ -63,7 +63,6 @@ export function useGrassUniforms() {
                 uBladeSeedRange: uniform(vec2(0.95, 1.03)),
                 uClumpSeedRange: uniform(vec2(0.9, 1.1)),
                 uAOPower: uniform(0.6),
-                uNoiseParams: uniform(vec4(1.0, 3.0, 0.7, 1.0)),
                 uBaseWidth: uniform(0.35),
                 uTipThin: uniform(0.9),
                 uThicknessStrength: uniform(0.10),
@@ -135,14 +134,6 @@ export function useGrassUniforms() {
         uniforms.material.uBaseWidth.value = params.baseWidth 
         uniforms.material.uTipThin.value = params.tipThin 
         uniforms.material.uThicknessStrength.value = params.thicknessStrength 
-
-        // Noise uniforms
-        uniforms.material.uNoiseParams.value.set(
-            params.noiseFreqX,
-            params.noiseFreqY,
-            params.noiseRemapMin,
-            params.noiseRemapMax
-        );
 
         // Character push uniforms
         uniforms.material.uCharacterPushRadius.value = params.pushRadius 
