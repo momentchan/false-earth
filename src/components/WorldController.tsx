@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useControls } from 'leva';
 import * as THREE from 'three/webgpu';
@@ -28,6 +28,9 @@ import { Character } from './character';
 
 export function WorldController() {
     const setActiveTargets = useGameStore((state) => state.setActiveTargets);
+    const setComponentReady = useGameStore((state) => state.setComponentReady);
+    
+    const debugMode = new URLSearchParams(window.location.search).get('debug') === 'true';
 
     const { enableEnv, enableRose, enableGrass, enableCharacter } = useControls('Game.Content', {
         enableEnv: { value: true, label: 'Environment' },
@@ -89,23 +92,25 @@ export function WorldController() {
 
     return <>
         {/* Environment - use group visibility to avoid remounting */}
-        <group visible={enableEnv}>
-            <StarrySky />
-            <CosmicSystem />
-            <Terrain />
-        </group>
+        <Suspense fallback={null}>
+            <group visible={enableEnv}>
+                <StarrySky />
+                <CosmicSystem />
+                <Terrain />
+            </group>
 
-        {/* Major components - toggle visibility instead of unmounting */}
-        <AsyncCompile id="rose">
-            <Rose count={2000} visible={enableRose} />
-        </AsyncCompile>
+            {/* Major components - toggle visibility instead of unmounting */}
+            <AsyncCompile id="rose" onReady={setComponentReady} debug={debugMode}>
+                <Rose count={2000} visible={enableRose} />
+            </AsyncCompile>
 
-        <AsyncCompile id="grass">
-            <GrassWebGPU visible={enableGrass} />
-        </AsyncCompile>
+            <AsyncCompile id="grass" onReady={setComponentReady} debug={debugMode}>
+                <GrassWebGPU visible={enableGrass} />
+            </AsyncCompile>
 
-        <AsyncCompile id="character">
-            <Character position={[0, 0, 0]} scale={1} visible={enableCharacter} />
-        </AsyncCompile>
+            <AsyncCompile id="character" onReady={setComponentReady} debug={debugMode}>
+                <Character position={[0, 0, 0]} scale={1} visible={enableCharacter} />
+            </AsyncCompile>
+        </Suspense>
     </>
 }

@@ -1,7 +1,7 @@
-import { Environment, StatsGl } from "@react-three/drei";
+import { Environment, StatsGl, useGLTF } from "@react-three/drei";
 import LevaWrapper from "../debug/LevaWrapper";
 import { Canvas } from "@react-three/fiber";
-import { useEffect, Suspense, useMemo } from "react";
+import { useEffect, Suspense, useMemo, useState } from "react";
 import { DirectionalLight } from "../components/DirectionalLight";
 import { WebGPURenderer } from "three/webgpu";
 import Effects from "../components/Effects/Effects";
@@ -18,7 +18,15 @@ import { Inspector } from 'three/addons/inspector/Inspector.js';
 import { createContext } from "react";
 import * as THREE from "three/webgpu";
 
-preloadVATAssets('/vat/Rose_meta.json');
+
+useGLTF.preload('/models/Astronaut.glb');
+useGLTF.preload('/models/Idle.glb');
+useGLTF.preload('/models/Walking.glb');
+useGLTF.preload('/models/Running.glb');
+useGLTF.preload('/models/WalkingBack.glb');
+
+preloadVATAssets('/vat/RoseSmall_meta.json');
+
 
 export const BeamSceneContext = createContext<THREE.Scene | null>(null);
 
@@ -70,12 +78,10 @@ export default function App() {
             {/* <WebGpuPerf /> */}
             {/* <StatsGl /> */}
 
-            <Suspense fallback={null}>
-                <BeamSceneContext.Provider value={beamScene}>
-                    <Suspense fallback={null}>
-                        <WorldController />
-                    </Suspense>
+            <BeamSceneContext.Provider value={beamScene}>
+                <WorldController />
 
+                <Suspense fallback={null}>
                     <color attach="background" args={['#000000']} />
                     <CameraViewControl />
                     <Environment
@@ -84,8 +90,8 @@ export default function App() {
                     />
                     <DirectionalLight />
                     <Effects />
-                </BeamSceneContext.Provider>
-            </Suspense>
+                </Suspense>
+            </BeamSceneContext.Provider>
         </Canvas>
     </>
 }
