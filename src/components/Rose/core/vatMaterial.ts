@@ -84,6 +84,7 @@ export function createVATMaterial(
   colorTex: THREE.Texture,
   outlineTex: THREE.Texture,
   normalMapTex: THREE.Texture,
+  lodDebugColor?: THREE.Color,
 ): THREE.MeshStandardNodeMaterial {
   const material = new THREE.MeshStandardNodeMaterial();
   material.side = THREE.DoubleSide;
@@ -265,6 +266,7 @@ export function createVATMaterial(
   })();
 
   // material.fragmentNode = Fn(() => {
+  //   return vec4(lodDebugColor?.r ?? 1, lodDebugColor?.g ?? 1, lodDebugColor?.b ?? 1, 1);
   //   const distToCharacter = distance(instancePos, uniforms.uCharacterWorldPos);
   //   return step(distToCharacter, 1);
   // })();

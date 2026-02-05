@@ -1,0 +1,12 @@
+{
+  "frameCount": 142,
+  "padding": 2,
+  "textureWidth": 576,
+  "textureHeight": 331,
+  "compressNormal": true,
+  "textures": {
+    "position": "RoseLowPoly_pos.exr",
+    "normal": "RoseLowPoly_nrm.png"
+  },
+  "glb": "RoseLowPoly.glb"
+}

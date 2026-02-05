@@ -26,6 +26,7 @@ useGLTF.preload('/models/Running.glb');
 useGLTF.preload('/models/WalkingBack.glb');
 
 preloadVATAssets('/vat/Rose_meta.json');
+preloadVATAssets('/vat/RoseLowPoly_meta.json');
 
 
 export const BeamSceneContext = createContext<THREE.Scene | null>(null);

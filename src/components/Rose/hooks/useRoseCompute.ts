@@ -1,9 +1,9 @@
 import { instancedArray, storage, struct, vec3, uniform } from "three/tsl";
 import * as THREE from "three/webgpu";
 import { vatStructure } from "../core/config";
+import type { RoseLODBufferConfig } from "../core/config";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { createResetCompute, createSpawnCompute, createUpdateCompute, createVisibleIndicesBuffer } from "../core/vatCompute";
-import { drawIndirectStructure } from "../../grass/core/config";
+import { createResetCompute, createSpawnCompute, createUpdateCompute } from "../core/vatCompute";
 import { useFrame } from "@react-three/fiber";
 import { WebGPURenderer } from "three/webgpu";
 import { useThree } from "@react-three/fiber";
@@ -12,11 +12,11 @@ const BATCH_SIZE = 1024;
 
 export function useRoseCompute(
     count: number,
-    geometry: THREE.BufferGeometry | null,
+    lodBuffers: RoseLODBufferConfig[],
     uniforms: Record<string, any>
 ) {
     const { gl, camera } = useThree()
-    const computeRefs = useRef<{ reset: THREE.ComputeNode, spawn: THREE.ComputeNode, update: THREE.ComputeNode } | null>(null)
+    const computeRefs = useRef<{ reset: THREE.ComputeNode[], spawn: THREE.ComputeNode, update: THREE.ComputeNode } | null>(null)
 
     const spawnUniforms = useMemo(() => ({
         uSpawnPos: uniform(vec3(0)),
@@ -32,34 +32,30 @@ export function useRoseCompute(
         return storage(buffer, spawnStateStruct, 1)
     }, [])
 
-    const { vatData, visibleIndices } = useMemo(() => {
+    const { vatData } = useMemo(() => {
         // VAT Instance Data
         const vatDataArr = new Float32Array(count * 8); // 8 floats per instance (stride)
         const vatData = instancedArray(vatDataArr, vatStructure);
-        const visibleIndices = createVisibleIndicesBuffer(count);
-        return { vatData, visibleIndices }
+        return { vatData }
     }, [count]);
 
     useEffect(() => {
-        if (!geometry || !uniforms) return;
+        if (!lodBuffers.length || !uniforms) return;
 
-        // Indirect Draw Setup
-        const indexCount = geometry.index ? geometry.index.count : geometry.attributes.position.count
-        const drawBuffer = new THREE.IndirectStorageBufferAttribute(new Uint32Array(5), 5)
-        const drawStorage = storage(drawBuffer, drawIndirectStructure, 1)
-        geometry.setIndirect(drawBuffer)
+        // Compute Shaders - one reset per LOD, shared spawn/update
+        const resetComputes = lodBuffers.map((lodBuffer, index) => {
+            return createResetCompute(lodBuffer.drawStorage, lodBuffer.vertexCount).setName(`RoseReset_LOD${index}`)
+        })
 
-        // Compute Shaders
-        const resetCompute = createResetCompute(drawStorage, indexCount).setName('RoseReset')
         const spawnCompute = createSpawnCompute(vatData, spawnStorage, spawnUniforms, BATCH_SIZE, count).setName('RoseSpawn')
-        const updateCompute = createUpdateCompute(drawStorage, visibleIndices, vatData, count, uniforms).setName('RoseUpdate')
+        const updateCompute = createUpdateCompute(lodBuffers, vatData, count, uniforms).setName('RoseUpdate')
 
-        computeRefs.current = { reset: resetCompute, spawn: spawnCompute, update: updateCompute }
+        computeRefs.current = { reset: resetComputes, spawn: spawnCompute, update: updateCompute }
 
         return () => {
             computeRefs.current = null
         }
-    }, [geometry, uniforms])
+    }, [lodBuffers, uniforms, vatData, spawnStorage, spawnUniforms, count])
 
     const spawn = useCallback((pos: THREE.Vector3, amount: number = 1, radius: number = 0.5) => {
         spawnUniforms.uSpawnPos.value.copy(pos);
@@ -77,7 +73,11 @@ export function useRoseCompute(
         )
         uniforms.uCameraPosition.value.copy(camera.position)
 
-        renderer.compute(computeRefs.current.reset)
+        // Reset all LOD buffers
+        computeRefs.current.reset.forEach(resetCompute => {
+            renderer.compute(resetCompute)
+        })
+
         renderer.compute(computeRefs.current.spawn)
         renderer.compute(computeRefs.current.update)
 
@@ -86,7 +86,6 @@ export function useRoseCompute(
 
     return {
         vatData,
-        visibleIndices,
         spawn,
     }
 }
