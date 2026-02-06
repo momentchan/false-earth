@@ -6,7 +6,7 @@ import { DEFAULT_LOD_SEGMENTS_CONFIG, drawIndirectStructure, LODBufferConfig } f
 import { createBladeGeometry, createVisibleIndicesBuffer } from '../core/grassGeometry'
 import { DEFAULT_BLADES_PER_AXIS } from '../core/config'
 import { storage } from 'three/tsl'
-import { createPositions, createGrassData } from '../core/grassGeometry'
+import { createGrassData } from '../core/grassGeometry'
 import { createGrassCompute, createResetDrawBufferCompute } from '../core/grassCompute'
 import { WebGPURenderer } from 'three/webgpu'
 
@@ -19,14 +19,10 @@ export function useGrassCompute(
 
     const computeRefs = useRef<{ main: any, reset: any } | null>(null)
     const grassDataRef = useRef<ReturnType<typeof createGrassData> | null>(null)
-    const positionsRef = useRef<ReturnType<typeof createPositions> | null>(null)
 
     useEffect(() => {
         const grassBlades = DEFAULT_BLADES_PER_AXIS * DEFAULT_BLADES_PER_AXIS
-        // Create positions and grass data
-        const positions = createPositions(grassBlades)
         const grassData = createGrassData(grassBlades)
-        positionsRef.current = positions
         grassDataRef.current = grassData
 
         // Generate LOD buffers from segments config
@@ -48,14 +44,13 @@ export function useGrassCompute(
         setLodBuffers(configs)
 
         computeRefs.current = {
-            main: createGrassCompute(grassData, positions, configs, uniforms.compute).computeFn().compute(grassBlades).setName('GrassUpdate'),
+            main: createGrassCompute(grassData, configs, uniforms.compute).computeFn().compute(grassBlades).setName('GrassUpdate'),
             reset: createResetDrawBufferCompute(configs).setName('GrassReset'),
         }
 
         return () => {
             computeRefs.current = null
             grassDataRef.current = null
-            positionsRef.current = null
         }
     }, [])
 
@@ -80,6 +75,5 @@ export function useGrassCompute(
     return {
         lodBuffers,
         grassData: grassDataRef.current,
-        positions: positionsRef.current,
     }
 }

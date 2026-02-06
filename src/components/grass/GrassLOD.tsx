@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three/webgpu";
-import { createBladeGeometry, createGrassData, createPositions } from "./core/grassGeometry";
+import { createBladeGeometry, createGrassData } from "./core/grassGeometry";
 import { createGrassMaterial } from "./core/grassMaterial";
 import { DEFAULT_BLADES_PER_AXIS } from "./core/config";
 import type { LODBufferConfig } from "./core/config";
@@ -9,7 +9,6 @@ import type { LODBufferConfig } from "./core/config";
 interface GrassLODProps {
   grassParams: any;
   grassData: ReturnType<typeof createGrassData> | null;
-  positions: ReturnType<typeof createPositions> | null;
   lodBuffer: LODBufferConfig;
   uniforms: Record<string, any>;
   trailTexture?: THREE.StorageTexture | null;
@@ -18,7 +17,6 @@ interface GrassLODProps {
 export function GrassLOD({
   grassParams,
   grassData,
-  positions,
   lodBuffer,
   uniforms,
 }: GrassLODProps) {
@@ -27,7 +25,7 @@ export function GrassLOD({
   const bladesPerAxis = DEFAULT_BLADES_PER_AXIS;
 
   const mesh = useMemo(() => {
-    if (!grassData || !positions || !lodBuffer) {
+    if (!grassData || !lodBuffer) {
       return null;
     }
 
@@ -43,7 +41,6 @@ export function GrassLOD({
 
     const { material } = createGrassMaterial(
       grassData,
-      positions,
       lodBuffer.indices,
       uniforms,
       lodDebugColor,
@@ -64,7 +61,6 @@ export function GrassLOD({
   }, [
     bladesPerAxis,
     grassData,
-    positions,
     lodBuffer,
     uniforms,
     scene.environment,

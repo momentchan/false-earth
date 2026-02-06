@@ -41,25 +41,16 @@ export const TIP_COLOR_PRESETS = [
   '#7c7c22', // Yellow
 ]
 
-// ============================================================================
-// Structures
-// ============================================================================
+// (4x vec4 = 64 bytes)
 export const grassStructure = struct({
-  // Blade parameters
-  bladeHeight: 'float',
-  bladeWidth: 'float',
-  bladeBend: 'float',
-  bladeType: 'float',
-
-  // Clump data
-  toCenter: 'vec2',
-  presence: 'float',
-  clumpSeed01: 'float',
-
-  // Motion seeds
-  facingAngle01: 'float',
-  perBladeHash01: 'float',
-  windStrength01: 'float',
+  // Data 0: Position(xyz) + Type(w)
+  data0: 'vec4',
+  // Data 1: Width(x), Height(y), Bend(z), WindStrength(w)
+  data1: 'vec4',
+  // Data 2: RotSin(x), RotCos(y), ClumpSeed(z), BladeSeed(w)
+  data2: 'vec4',
+  // Data 3: Compressed Normal(xz) + Push Vector(xy); vertex reconstructs tn.y from tn.x, tn.z
+  data3: 'vec4',
 })
 
 // Indirect draw buffer structure (WebGPU draw indirect format)

@@ -42,6 +42,9 @@ export function useGrassUniforms() {
                 uViewProjectionMatrix: uniform(new THREE.Matrix4()),
                 uCameraPosition: uniform(new THREE.Vector3()),
                 uGroupOffset: uniform(new THREE.Vector3()),
+                uCharacterWorldPos: uniform(new THREE.Vector3(0, 0, 0)),
+                uCharacterPushRadius: uniform(0.8),
+                uCharacterPushAmount: uniform(0.3),
             },
             material: {
                 uWindSwayFreqMin: uniform(0.4),
@@ -92,9 +95,12 @@ export function useGrassUniforms() {
         uniforms.compute.uClumpYaw.value = params.clumpYaw
 
         // Culling parameters
-        uniforms.compute.uCullOffset.value = params.cullOffset 
+        uniforms.compute.uCullOffset.value = params.cullOffset
         // LOD parameters
-        uniforms.compute.uLODNoiseScale.value = params.lodNoiseScale 
+        uniforms.compute.uLODNoiseScale.value = params.lodNoiseScale
+        // Character interaction (used in compute for push vector)
+        uniforms.compute.uCharacterPushRadius.value = params.pushRadius
+        uniforms.compute.uCharacterPushAmount.value = params.pushAmount
     }, [params, uniforms.compute])
 
     useEffect(() => {

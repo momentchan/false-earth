@@ -19,7 +19,7 @@ export default function GrassWebGPU({ cullCamera, visible = true }: GrassProps =
   const characterPos = useMemo(() => new THREE.Vector3(), [])
 
   const { uniforms, params } = useGrassUniforms()
-  const { lodBuffers, grassData, positions } = useGrassCompute(uniforms, cameraToUse)
+  const { lodBuffers, grassData } = useGrassCompute(uniforms, cameraToUse)
 
   // Use centralized grid snapping hook
   useGridSnapping({
@@ -41,6 +41,7 @@ export default function GrassWebGPU({ cullCamera, visible = true }: GrassProps =
     if (characterRef?.current) {
       characterRef.current.getWorldPosition(characterPos);
       uniforms.material.uCharacterWorldPos.value.copy(characterPos);
+      uniforms.compute.uCharacterWorldPos.value.copy(characterPos);
     }
   })
 
@@ -51,7 +52,6 @@ export default function GrassWebGPU({ cullCamera, visible = true }: GrassProps =
           key={`lod-${lodBuffer.segments}-${lodBuffer.minDistance}-${lodBuffer.maxDistance}`}
           grassParams={params}
           grassData={grassData}
-          positions={positions}
           lodBuffer={lodBuffer}
           uniforms={uniforms.material}
         />
