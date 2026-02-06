@@ -44,6 +44,10 @@ interface GameState {
 
   isControlEnabled: boolean; 
   setControlEnabled: (enabled: boolean) => void;
+
+  // ===== WebGPU State =====
+  gpuError: string | null;
+  setGpuError: (error: string | null) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -89,4 +93,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   isControlEnabled: false,
   setControlEnabled: (enabled) => set({ isControlEnabled: enabled }),
+
+  // ===== WebGPU State =====
+  gpuError: null,
+  setGpuError: (error) => set({ gpuError: error }),
 }));

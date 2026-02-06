@@ -287,7 +287,7 @@ export function createGrassCompute(
 
     const diff = worldPos.sub(uniforms.uCameraPosition);
     const distToCamera = length(diff);
-    const isCloseEnough = abs(diff.x).add(abs(diff.z)).lessThan(float(2.5));
+    const isCloseEnough = abs(diff.x).add(abs(diff.z)).lessThan(float(3));
     const isVisible = isCloseEnough.or(performCulling(worldPos));
 
     // 4. [Optimization] Expensive Logic Block

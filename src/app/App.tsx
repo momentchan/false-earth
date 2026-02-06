@@ -35,6 +35,33 @@ export default function App() {
     const beamScene = useMemo(() => new THREE.Scene(), []);
 
     const toggleCameraMode = useGameStore((state) => state.toggleCameraMode);
+    const setGpuError = useGameStore((state) => state.setGpuError);
+
+    // Check WebGPU support on mount
+    useEffect(() => {
+        const checkWebGPU = async () => {
+            if (!navigator.gpu) {
+                setGpuError("WEBGPU NOT SUPPORTED");
+                console.error("WebGPU is not supported in this browser");
+                return;
+            }
+            try {
+                const adapter = await navigator.gpu.requestAdapter();
+                if (!adapter) {
+                    setGpuError("NO GPU ADAPTER FOUND");
+                    console.error("No GPU adapter found");
+                    return;
+                }
+                console.log('WebGPU initialized successfully');
+                setGpuError(null); // Clear any previous errors
+            } catch (e) {
+                setGpuError("GPU INIT FAILED");
+                console.error("WebGPU initialization failed:", e);
+            }
+        };
+        checkWebGPU();
+    }, [setGpuError]);
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key.toLowerCase() === 'c') {
@@ -51,8 +78,7 @@ export default function App() {
         <DeviceDetector />
         <UI />
 
-        <Canvas
-            shadows
+        {!gpuError && <Canvas
             camera={{
                 fov: 45,
                 near: 0.1,
@@ -93,6 +119,6 @@ export default function App() {
                     <Effects />
                 </Suspense>
             </BeamSceneContext.Provider>
-        </Canvas>
+        </Canvas>}
     </>
 }

@@ -45,6 +45,7 @@ export function LoadingScreen() {
     const readyStatus = useGameStore((state) => state.readyStatus);
     const isMobile = useGameStore((state) => state.isMobile);
     const setIsGameStarted = useGameStore((state) => state.setIsGameStarted);
+    const gpuError = useGameStore((state) => state.gpuError);
 
     // Local State
     const [isReadyToStart, setIsReadyToStart] = useState(false);
@@ -69,7 +70,8 @@ export function LoadingScreen() {
     }, [active, loaded, total]);
 
     const handleStart = () => {
-        if (!isReadyToStart) return;
+        // Prevent starting if GPU error exists
+        if (!isReadyToStart || gpuError) return;
 
         setIsGameStarted(true);
 
@@ -107,10 +109,12 @@ export function LoadingScreen() {
     };
 
     const playButtonStyle: React.CSSProperties = {
-        color: 'white', backgroundColor: 'transparent', border: 'none',
-        letterSpacing: '3px', transition: 'all 0.5s ease',
-        cursor: isReadyToStart ? 'pointer' : 'wait',
-        transform: 'scale(1)', // Initial state for transform
+        color: gpuError ? '#ff4444' : 'white',
+        backgroundColor: 'transparent',
+        border: 'none',
+        letterSpacing: '3px',
+        transition: 'all 0.5s ease',
+        transform: 'scale(1)',
     };
 
     return (
@@ -135,22 +139,32 @@ export function LoadingScreen() {
                         What was once motion in the void becomes movement across an unfamiliar field, where distance replaces direction.
                     </p>
 
-                    <p>
-                        As you travel forward, the ground begins to change beneath you, leaving visible traces of passage behind.
-                        This experience is not about reaching a destination, but about crossing a world shaped by movement itself.
-                    </p>
+                    {!gpuError && (
+                        <p>
+                            As you travel forward, the ground begins to change beneath you, leaving visible traces of passage behind.
+                            This experience is not about reaching a destination, but about crossing a world shaped by movement itself.
+                        </p>
+                    )}
                 </div>
 
                 {/* Play Button & Progress Bar */}
                 <div className='play'>
                     <button
                         onClick={handleStart}
-                        disabled={!isReadyToStart}
-                        style={playButtonStyle}
-                        onMouseEnter={(e) => isReadyToStart && (e.currentTarget.style.transform = 'scale(1.02)')}
-                        onMouseLeave={(e) => isReadyToStart && (e.currentTarget.style.transform = 'scale(1)')}
+                        disabled={!isReadyToStart || !!gpuError}
+                        style={{
+                            ...playButtonStyle,
+                            cursor: gpuError ? 'default' : (isReadyToStart ? 'pointer' : 'wait'),
+                            opacity: gpuError ? 0.8 : 1
+                        }}
+                        onMouseEnter={(e) => (isReadyToStart && !gpuError) && (e.currentTarget.style.transform = 'scale(1.02)')}
+                        onMouseLeave={(e) => (isReadyToStart && !gpuError) && (e.currentTarget.style.transform = 'scale(1)')}
                     >
-                        {isReadyToStart ? "START" : (
+                        {gpuError ? (
+                            <span style={{ letterSpacing: '2px' }}>SYSTEM INCOMPATIBLE</span>
+                        ) : isReadyToStart ? (
+                            "START"
+                        ) : (
                             <span>
                                 {active ? "ESTABLISHING UPLINK" : "CALIBRATING SENSORS"}... {displayProgress}%
                             </span>
@@ -159,29 +173,43 @@ export function LoadingScreen() {
 
                     <div style={{
                         width: '250px', height: '1px', background: '#222', margin: '10px auto',
-                        opacity: isReadyToStart ? 0 : 1, transition: 'opacity 0.5s'
+                        opacity: (isReadyToStart || gpuError) ? 0 : 1, transition: 'opacity 0.5s'
                     }}>
                         <div style={{ width: `${displayProgress}%`, height: '100%', background: '#666', transition: 'width 0.2s' }} />
                     </div>
                 </div>
 
+                {/* Bottom Area: Error message or Controls instruction */}
                 <div style={{
-                    marginTop: '80px', color: '#ccc', opacity: 0.8, animation: 'fadeIn 3s ease',
+                    marginTop: '40px', color: '#ccc', opacity: 0.8, animation: 'fadeIn 3s ease',
                     userSelect: 'none', display: 'flex', justifyContent: 'center', gap: '24px',
                     flexDirection: 'row',
                 }}>
-                    {isMobile ? (
-                        <>
-                            <InstructionRow input={<Key>L-STICK</Key>} label="MOVE" />
-                            <InstructionRow input={<Key>TOUCH</Key>} label="LOOK" />
-                        </>
+                    {gpuError ? (
+                        /* Error State: Show specific error code and solution */
+                        <div style={{ fontSize: '0.8rem', maxWidth: '400px', lineHeight: '1.4' }}>
+                            <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.7rem' }}>
+                                ERROR CODE: {gpuError}
+                            </p>
+                            <p style={{ margin: '8px 0 0 0', fontSize: '0.7rem', color: '#666' }}>
+                                GPU acceleration unavailable.<br />
+                                Please access via a desktop workstation.
+                            </p>
+                        </div>
                     ) : (
-                        <>
-                            <InstructionRow input={<><Key>W</Key><Key>A</Key><Key>S</Key><Key>D</Key></>} label="MOVE" />
-                            <InstructionRow input={<Key>SHIFT</Key>} label="RUN" />
-                            <InstructionRow input={<Key>C</Key>} label="CAMERA" />
-                            <InstructionRow input={<MouseIcon />} label="LOOK" />
-                        </>
+                        isMobile ? (
+                            <>
+                                <InstructionRow input={<Key>L-STICK</Key>} label="MOVE" />
+                                <InstructionRow input={<Key>TOUCH</Key>} label="LOOK" />
+                            </>
+                        ) : (
+                            <>
+                                <InstructionRow input={<><Key>W</Key><Key>A</Key><Key>S</Key><Key>D</Key></>} label="MOVE" />
+                                <InstructionRow input={<Key>SHIFT</Key>} label="RUN" />
+                                <InstructionRow input={<Key>C</Key>} label="CAMERA" />
+                                <InstructionRow input={<MouseIcon />} label="LOOK" />
+                            </>
+                        )
                     )}
                 </div>
             </div>

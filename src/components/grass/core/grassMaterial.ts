@@ -117,11 +117,6 @@ export function createGrassMaterial(
   const data = grassData.element(trueIndex);
   const instancePos = positions.element(trueIndex);
 
-  material.positionNode = Fn(() => {
-    const localPos = instancePos.sub(uGroupOffset);
-    return localPos;
-  })();
-
   const grassVertex = Fn(() => {
     // Terrain helper functions
     const terrainHeight = getTerrainHeight(
@@ -292,15 +287,14 @@ export function createGrassMaterial(
     vWorldPos.assign(worldPosFinal);
     vSide.assign(sideRotated);
     vClumpSeed.assign(clumpSeed01);
-    vBladeSeed.assign(perBladeHash01); // perBladeHash01 already declared above
-
-    // Transform from world space to clip space (reuse worldPosFinal4 vec4)
-    // World space → View space → Clip space
-    const viewPos = cameraViewMatrix.mul(worldPosFinal4);
-    return cameraProjectionMatrix.mul(viewPos);
+    vBladeSeed.assign(perBladeHash01); 
+    return worldPosFinal4;
   });
 
-  material.vertexNode = grassVertex();
+  material.positionNode = Fn(() => {
+    const worldPos = grassVertex();
+    return worldPos.sub(uGroupOffset);
+  })();
 
   // Set normal node for PBR lighting
   material.normalNode = Fn(() => {
