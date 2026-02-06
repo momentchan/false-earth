@@ -77,10 +77,13 @@ export function WorldController() {
         uTerrainColor.value.set(c.r, c.g, c.b);
     }, [terrainParams]);
 
-    // Always compile all major components since they're now always mounted
     useEffect(() => {
-        setActiveTargets(['rose', 'grass', 'character']);
-    }, [setActiveTargets]);
+        const targets: string[] = [];
+        if (enableRose) targets.push('rose');
+        if (enableGrass) targets.push('grass');
+        if (enableCharacter) targets.push('character');
+        setActiveTargets(targets);
+    }, [enableRose, enableGrass, enableCharacter, setActiveTargets]);
 
     useFrame((_state, rawDelta) => {
         const delta = Math.min(rawDelta, 0.1);

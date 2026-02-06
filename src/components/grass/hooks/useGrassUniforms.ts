@@ -1,9 +1,8 @@
 import { useControls } from "leva";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { uniform, vec2, vec3, vec4 } from "three/tsl";
+import { uniform, vec2, vec3 } from "three/tsl";
 import { createGrassControls } from "../core/grassControls";
-import { DEFAULT_BLADES_PER_AXIS, DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS } from "../core/config";
 
 export function useGrassUniforms() {
 
@@ -39,10 +38,6 @@ export function useGrassUniforms() {
                 // Culling Parameters
                 uCullOffset: uniform(0.8),
                 uLODNoiseScale: uniform(0.1),
-
-                uBladesPerAxis: uniform(DEFAULT_BLADES_PER_AXIS),
-                uGrassAreaSize: uniform(DEFAULT_GRASS_AREA_SIZE),
-                uGridCellSize: uniform(DEFAULT_GRASS_AREA_SIZE / DEFAULT_GRID_DIVISIONS),
 
                 uViewProjectionMatrix: uniform(new THREE.Matrix4()),
                 uCameraPosition: uniform(new THREE.Vector3()),
@@ -100,10 +95,6 @@ export function useGrassUniforms() {
         uniforms.compute.uCullOffset.value = params.cullOffset 
         // LOD parameters
         uniforms.compute.uLODNoiseScale.value = params.lodNoiseScale 
-
-        uniforms.compute.uBladesPerAxis.value = DEFAULT_BLADES_PER_AXIS
-        uniforms.compute.uGrassAreaSize.value = DEFAULT_GRASS_AREA_SIZE
-        uniforms.compute.uGridCellSize.value = DEFAULT_GRASS_AREA_SIZE / DEFAULT_GRID_DIVISIONS
     }, [params, uniforms.compute])
 
     useEffect(() => {

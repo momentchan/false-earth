@@ -22,7 +22,7 @@ export default function GrassWebGPU({ cullCamera, visible = true }: GrassProps =
   const { lodBuffers, grassData, positions } = useGrassCompute(uniforms, cameraToUse)
 
   // Use centralized grid snapping hook
-  const { gridCellSize } = useGridSnapping({
+  useGridSnapping({
     camera: cameraToUse,
     onSnap: ({ snappedX, snappedZ }) => {
       if (!groupRef.current) return;
@@ -32,7 +32,6 @@ export default function GrassWebGPU({ cullCamera, visible = true }: GrassProps =
 
       if (groupRef.current) {
         uniforms.compute.uGroupOffset.value.setFromMatrixPosition(groupRef.current.matrixWorld)
-        uniforms.compute.uGridCellSize.value = gridCellSize
         uniforms.material.uGroupOffset.value.copy(uniforms.compute.uGroupOffset.value)
       }
     },

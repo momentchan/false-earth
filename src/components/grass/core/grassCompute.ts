@@ -28,6 +28,7 @@ import {
 
 import { uWindDir, uWindScale, uWindSpeed, uWindStrength, uWindFacing } from "../../../core/shaders/uniforms";
 import type { LODBufferConfig } from "./config";
+import { DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS, DEFAULT_BLADES_PER_AXIS } from "./config";
 import { calculateWindStrength, applyWindFacingAndNormalize } from "../../../core/shaders/windHelpers";
 import { uTime } from "../../../core/shaders/uniforms";
 
@@ -37,6 +38,11 @@ export function createGrassCompute(
   lodConfigs: LODBufferConfig[],
   uniforms: Record<string, any>
 ) {
+
+  // Constants imported from config
+  const BLADES_PER_AXIS = float(DEFAULT_BLADES_PER_AXIS);
+  const GRASS_AREA_SIZE = float(DEFAULT_GRASS_AREA_SIZE);
+  const GRID_CELL_SIZE = float(DEFAULT_GRASS_AREA_SIZE / DEFAULT_GRID_DIVISIONS);
 
   // Build LOD routing chain factory function
   const createLODRoutingChainBuilder = (configs: LODBufferConfig[]) => {
@@ -148,7 +154,7 @@ export function createGrassCompute(
 
     const inFrustum = isInFront.and(xIn).and(yIn).and(zIn);
 
-    const isInCircle = length(worldPos.sub(uniforms.uGroupOffset)).lessThan(uniforms.uGrassAreaSize.mul(0.5));
+    const isInCircle = length(worldPos.sub(uniforms.uGroupOffset)).lessThan(GRASS_AREA_SIZE.mul(0.5));
 
     return inFrustum.and(isInCircle);
   });
@@ -237,30 +243,30 @@ export function createGrassCompute(
       return clumpAngle.add(randomOffset).add(clumpYaw);
     };
 
-    // [Optimization] Bitwise Indexing for Grid Position
-    // Replaces slow float division. Assumes 1024 blades per axis (2^10).
-    // This allows instant calculation of grid coordinates.
-    const BLADES_PER_AXIS = float(1024.0); // Make sure this matches config
-
+    // Grid Position Calculation
+    // Uses standard division and modulo operations
     const calculateJitteredPosition = Fn(([idx]: [any]) => {
       const uIdx = uint(idx);
-      const iGridX = uIdx.shiftRight(uint(10)); // idx / 1024
-      const iGridZ = uIdx.bitAnd(uint(1023));   // idx % 1024
+      const uWidth = uint(DEFAULT_BLADES_PER_AXIS);
+
+      // Row = Index / Width (Integer Division)
+      const iGridX = uIdx.div(uWidth);
+      // Col = Index % Width (Modulo)
+      const iGridZ = uIdx.mod(uWidth);
       const gridX = float(iGridX);
       const gridZ = float(iGridZ);
 
-      const grassAreaSize = uniforms.uGrassAreaSize;
       const fx = gridX.div(BLADES_PER_AXIS).sub(0.5);
       const fz = gridZ.div(BLADES_PER_AXIS).sub(0.5);
-      const px = fx.mul(grassAreaSize);
-      const pz = fz.mul(grassAreaSize);
+      const px = fx.mul(GRASS_AREA_SIZE);
+      const pz = fz.mul(GRASS_AREA_SIZE);
       const instancePosRaw = vec3(px, float(0.0), pz);
 
       const worldPosRaw = instancePosRaw.add(uniforms.uGroupOffset);
 
       // Stable World Grid Calculation
-      const worldGridX = floor(worldPosRaw.x.div(uniforms.uGridCellSize));
-      const worldGridZ = floor(worldPosRaw.z.div(uniforms.uGridCellSize));
+      const worldGridX = floor(worldPosRaw.x.div(GRID_CELL_SIZE));
+      const worldGridZ = floor(worldPosRaw.z.div(GRID_CELL_SIZE));
 
       // [Optimization] Fast Integer Hash Seed Construction
       // Create a unique integer ID for this cell to prevent float jitter
