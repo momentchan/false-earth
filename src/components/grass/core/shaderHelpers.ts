@@ -3,6 +3,7 @@ import {
   vec3,
   vec4,
   float,
+  uint,
   normalize,
   sin,
   mod,
@@ -30,6 +31,31 @@ import {
 import { rotateAxis } from "../../../core/shaders/terrainHelpers";
 import { DEFAULT_GRASS_AREA_SIZE } from "./config";
 import { safeNormalize2D, bezier3, bezier3Tangent, easeOutCubic, easeOutExpo } from "../../../core/shaders/mathHelpers";
+
+// PCG Hash: no sin, no mod — stable and non-repeating (integer in -> random 0..1 out)
+const PCG_MUL = 747796405;
+const PCG_ADD = 2891336453;
+const PCG_OUT = 277803737;
+const PCG_MAX = 4294967295.0;
+
+export const pcgHash = Fn(([u]: [any]) => {
+  const state = uint(u).mul(uint(PCG_MUL)).add(uint(PCG_ADD));
+  let word = state.shiftRight(state.shiftRight(uint(28)).add(uint(4))).bitXor(state);
+  word = word.mul(uint(PCG_OUT));
+  word = word.shiftRight(uint(22)).bitXor(word);
+  return float(word).div(float(PCG_MAX));
+});
+
+export const hash2to1 = Fn(([x, y]: [any, any]) => {
+  const seed = uint(x).mul(uint(1597334677)).add(uint(y).mul(uint(3812015801)));
+  return pcgHash(seed);
+});
+
+export const hash2to2 = Fn(([x, y]: [any, any]) => {
+  const seed1 = uint(x).mul(uint(1597334677)).add(uint(y).mul(uint(3812015801)));
+  const seed2 = uint(x).mul(uint(3812015801)).add(uint(y).mul(uint(1597334677)));
+  return vec2(pcgHash(seed1), pcgHash(seed2));
+});
 
 /**
  * Gets Bezier control points based on blade type

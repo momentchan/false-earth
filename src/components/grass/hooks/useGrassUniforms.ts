@@ -42,6 +42,7 @@ export function useGrassUniforms() {
                 uViewProjectionMatrix: uniform(new THREE.Matrix4()),
                 uCameraPosition: uniform(new THREE.Vector3()),
                 uGroupOffset: uniform(new THREE.Vector3()),
+                uGridIndex: uniform(new THREE.Vector2(0, 0)),
                 uCharacterWorldPos: uniform(new THREE.Vector3(0, 0, 0)),
                 uCharacterPushRadius: uniform(0.8),
                 uCharacterPushAmount: uniform(0.3),

@@ -1,7 +1,7 @@
 import { useRef, MutableRefObject, useMemo } from 'react';
 import { Camera } from 'three';
 import { useFrame } from '@react-three/fiber';
-import { DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS, DEFAULT_BLADES_PER_AXIS } from '../../components/grass/core/config';
+import { DEFAULT_GRASS_AREA_SIZE, DEFAULT_BLADES_PER_AXIS } from '../../components/grass/core/config';
 
 export interface GridSnappingResult {
   snappedX: number;
@@ -34,13 +34,10 @@ export function useGridSnapping({
   const currentGridCellX = useRef<number | null>(null);
   const currentGridCellZ = useRef<number | null>(null);
 
-  // Calculate grid cell size internally
+  // Use single-blade spacing for snap step: avoids precision issues (e.g. 768)
+  // and decouples movement from hashing grid; movement stays smooth and exact
   const gridCellSize = useMemo(() => {
-    const gridDivisions = DEFAULT_GRID_DIVISIONS;
-    const bladesPerAxis = DEFAULT_BLADES_PER_AXIS;
-    const bladeSpacing = grassAreaSize / bladesPerAxis;
-    const rawGridCellSize = grassAreaSize / gridDivisions;
-    return Math.round(rawGridCellSize / bladeSpacing) * bladeSpacing;
+    return grassAreaSize / DEFAULT_BLADES_PER_AXIS;
   }, [grassAreaSize]);
 
   useFrame(() => {

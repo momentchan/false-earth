@@ -8,7 +8,6 @@ import {
   fract,
   sin,
   cos,
-  mul,
   dot,
   mix,
   instancedArray,
@@ -19,6 +18,8 @@ import {
   If,
   float,
   floor,
+  round,
+  int,
   uint,
   oneMinus,
   smoothstep,
@@ -31,9 +32,10 @@ import {
 
 import { uWindDir, uWindScale, uWindSpeed, uWindStrength, uWindFacing, uTime, uTerrainAmp, uTerrainFreq, uTerrainSeed } from "../../../core/shaders/uniforms";
 import type { LODBufferConfig } from "./config";
-import { DEFAULT_GRASS_AREA_SIZE, DEFAULT_GRID_DIVISIONS, DEFAULT_BLADES_PER_AXIS } from "./config";
+import { DEFAULT_GRASS_AREA_SIZE, DEFAULT_BLADES_PER_AXIS } from "./config";
 import { calculateWindStrength, applyWindFacingAndNormalize } from "../../../core/shaders/windHelpers";
 import { getTerrainHeight, getTerrainNormal } from "../../../core/shaders/terrainHelpers";
+import { hash2to1, hash2to2 } from "./shaderHelpers";
 
 export function createGrassCompute(
   grassData: ReturnType<typeof instancedArray>,
@@ -44,7 +46,7 @@ export function createGrassCompute(
   // Constants imported from config
   const BLADES_PER_AXIS = float(DEFAULT_BLADES_PER_AXIS);
   const GRASS_AREA_SIZE = float(DEFAULT_GRASS_AREA_SIZE);
-  const GRID_CELL_SIZE = float(DEFAULT_GRASS_AREA_SIZE / DEFAULT_GRID_DIVISIONS);
+  const BLADE_SPACING = float(DEFAULT_GRASS_AREA_SIZE / DEFAULT_BLADES_PER_AXIS);
 
   // Build LOD routing chain factory function
   const createLODRoutingChainBuilder = (configs: LODBufferConfig[]) => {
@@ -111,35 +113,6 @@ export function createGrassCompute(
 
   const buildLODRouting = createLODRoutingChainBuilder(lodConfigs);
 
-  const DOMAIN_WRAP = float(32.0);
-  const getSafeHashPos = (pos: any) => vec2(abs(pos.x).mod(DOMAIN_WRAP), abs(pos.y).mod(DOMAIN_WRAP));
-
-  // [Optimization] Fast Integer Hash
-  // Replaces sin/fract to prevent jitter at large coordinates during snapping
-  const fastHash = Fn(([uInput]: [any]) => {
-    const u = uint(uInput); // Cast input to uint directly
-    let h = u.mul(uint(0x74779649));
-    h = h.bitXor(h.shiftRight(uint(16)));
-    h = h.mul(uint(0x27d4eb2d));
-    h = h.bitXor(h.shiftRight(uint(15)));
-    h = h.mul(uint(0x5851f42d));
-    return float(h).div(float(0xffffffff));
-  });
-
-  const hash11 = (x: any) => fract(mul(sin(mul(x, 37.0)), 43758.5453123));
-
-  const hash21 = (p: any) => {
-    const h1 = hash11(dot(p, vec2(127.1, 311.7)));
-    const h2 = hash11(dot(p, vec2(269.5, 183.3)));
-    return vec2(h1, h2);
-  };
-
-  const hash2 = (p: any) => {
-    const x = dot(p, vec2(127.1, 311.7));
-    const y = dot(p, vec2(269.5, 183.3));
-    return fract(sin(vec2(x, y)).mul(43758.5453));
-  };
-
   const performCulling = Fn(([worldPos]: [any]) => {
     const radius = float(1.5);
     const viewProjMatrix = uniforms.uViewProjectionMatrix;
@@ -162,120 +135,39 @@ export function createGrassCompute(
     const bladeRandY = uniforms.uBladeRandomness.y;
     const bladeRandZ = uniforms.uBladeRandomness.z;
 
-    const getClumpInfo = (worldXZ: any) => {
-      const cell = worldXZ.div(uniforms.uClumpSize);
-      const i_base = floor(cell);
-      const f_base = fract(cell);
-
-      const minD2_1 = float(1e9).toVar();
-      const minD2_2 = float(1e9).toVar();
-
-      const bestCellId = vec2(0.0).toVar();
-      const secondBestCellId = vec2(0.0).toVar();
-      const bestDiff = vec2(0.0).toVar();
-
-      // 9-tap neighbor search
-      const offsets = [
-        [-1, -1], [0, -1], [1, -1],
-        [-1, 0], [0, 0], [1, 0],
-        [-1, 1], [0, 1], [1, 1]
-      ];
-
-      offsets.forEach(([x, y]) => {
-        const neighbor = vec2(float(x), float(y));
-        const currentCellId = getSafeHashPos(i_base.add(neighbor));
-
-        const seed = hash2(currentCellId);
-        const diff = neighbor.add(seed).sub(f_base);
-        const d2 = dot(diff, diff);
-
-        If(d2.lessThan(minD2_1), () => {
-          minD2_2.assign(minD2_1);
-          secondBestCellId.assign(bestCellId);
-
-          minD2_1.assign(d2);
-          bestCellId.assign(currentCellId);
-          bestDiff.assign(diff);
-        }).ElseIf(d2.lessThan(minD2_2), () => {
-          minD2_2.assign(d2);
-          secondBestCellId.assign(currentCellId);
-        });
-      });
-
-      const d1 = sqrt(minD2_1);
-      const d2 = sqrt(minD2_2);
-      const smoothness = uniforms.uClumpBlendSmoothness ?? float(0.2);
-
-      const centerFactor = smoothstep(float(0.0), smoothness, d2.sub(d1));
-      const toCenter = bestDiff.mul(uniforms.uClumpSize);
-
-      return { toCenter, bestCellId, secondBestCellId, centerFactor };
-    };
-
-    const getClumpParams = (cellId: any) => {
-      const c1 = hash21(cellId.mul(11.0));
-      const c2 = hash21(cellId.mul(23.0));
-      const clumpBaseHeight = mix(uniforms.uBladeHeightMin, uniforms.uBladeHeightMax, c1.x);
-      const clumpBaseWidth = mix(uniforms.uBladeWidthMin, uniforms.uBladeWidthMax, c1.y);
-      const clumpBaseBend = mix(uniforms.uBendAmountMin, uniforms.uBendAmountMax, c2.x);
-      const type = c2.y;
-      return { height: clumpBaseHeight, width: clumpBaseWidth, bend: clumpBaseBend, type: type };
-    };
-
-    const getBladeParams = (seed: any, clumpParams: any) => {
-      const h1 = hash21(seed.mul(13.0));
-      const h2 = hash21(seed.mul(29.0));
-      const height = clumpParams.height.mul(mix(oneMinus(bladeRandX), float(1.0).add(bladeRandX), h1.x));
-      const width = clumpParams.width.mul(mix(oneMinus(bladeRandY), float(1.0).add(bladeRandY), h1.y));
-      const bend = clumpParams.bend.mul(mix(oneMinus(bladeRandZ), float(1.0).add(bladeRandZ), h2.x));
-      const type = clumpParams.type;
-      return { height, width, bend, type };
-    };
-
-    const calculateBaseAngle = (toCenter: any, _worldXZ: any, cellId: any, perBladeHash01: any, centerFactor: any) => {
-      const clumpAngle = atan(toCenter.y, toCenter.x).mul(uniforms.uCenterYaw).mul(centerFactor);
-      const randomOffset = perBladeHash01.sub(0.5).mul(uniforms.uBladeYaw);
-      const clumpHash = hash11(dot(cellId, vec2(97.7, 3.1)));
-      const clumpYaw = clumpHash.sub(0.5).mul(uniforms.uClumpYaw).mul(centerFactor);
-      return clumpAngle.add(randomOffset).add(clumpYaw);
-    };
-
-    // Grid Position Calculation
-    const calculateJitteredPosition = Fn(([idx]: [any]) => {
+    const calculateWorldPosition = (idx: any) => {
       const uIdx = uint(idx);
-      const uWidth = uint(DEFAULT_BLADES_PER_AXIS);
+      const iGridX = uIdx.div( uint(DEFAULT_BLADES_PER_AXIS));
+      const iGridZ = uIdx.mod( uint(DEFAULT_BLADES_PER_AXIS));
+      const offsetStepsX = round(uniforms.uGridIndex.x);
+      const offsetStepsZ = round(uniforms.uGridIndex.y);
 
-      const iGridX = uIdx.div(uWidth);
-      const iGridZ = uIdx.mod(uWidth);
+      const globalGridX = int(iGridX).add(int(offsetStepsX));
+      const globalGridZ = int(iGridZ).add(int(offsetStepsZ));
+
+      const jitterRand = hash2to2(globalGridX, globalGridZ);
+      const jitterScale = BLADE_SPACING.mul(float(1.0));
+      const jitterX = jitterRand.x.sub(0.5).mul(jitterScale);
+      const jitterZ = jitterRand.y.sub(0.5).mul(jitterScale);
+
       const gridX = float(iGridX);
       const gridZ = float(iGridZ);
-
       const fx = gridX.div(BLADES_PER_AXIS).sub(0.5);
       const fz = gridZ.div(BLADES_PER_AXIS).sub(0.5);
       const px = fx.mul(GRASS_AREA_SIZE);
       const pz = fz.mul(GRASS_AREA_SIZE);
+
       const instancePosRaw = vec3(px, float(0.0), pz);
 
-      const worldPosRaw = instancePosRaw.add(uniforms.uGroupOffset);
-
-      const worldGridX = floor(worldPosRaw.x.div(GRID_CELL_SIZE));
-      const worldGridZ = floor(worldPosRaw.z.div(GRID_CELL_SIZE));
-
-      const seedInt = uint(abs(worldGridX)).mul(uint(100000)).add(uint(abs(worldGridZ)));
-
-      const jitterX = fastHash(seedInt).sub(0.5).mul(1);
-      const jitterZ = fastHash(seedInt.add(uint(1337))).sub(0.5).mul(1);
-
-      const instancePosLocal = vec3(
+      const worldPos = vec3(
         instancePosRaw.x.add(jitterX),
         instancePosRaw.y,
         instancePosRaw.z.add(jitterZ)
-      );
+      ).add(uniforms.uGroupOffset);
+      return { worldPos, globalGridX, globalGridZ };
+    };
 
-      return instancePosLocal.add(uniforms.uGroupOffset);
-    });
-
-    const worldPos = calculateJitteredPosition(instanceIndex);
+    const { worldPos, globalGridX, globalGridZ } = calculateWorldPosition(instanceIndex);
 
     const diff = worldPos.sub(uniforms.uCameraPosition);
     const distToCamera = length(diff);
@@ -284,40 +176,97 @@ export function createGrassCompute(
 
     If(isVisible, () => {
       const worldXZ = vec2(worldPos.x, worldPos.z);
-      const safeWorldXZ = getSafeHashPos(worldXZ);
 
-      // Terrain height and normal
+      // Terrain
       const terrainHeightFn = getTerrainHeight(uTerrainAmp, uTerrainFreq, uTerrainSeed);
       const th = terrainHeightFn(worldXZ);
       const tn = getTerrainNormal(terrainHeightFn)(worldXZ);
       const finalPos = vec3(worldPos.x, worldPos.y.add(th), worldPos.z);
 
       // Voronoi / clumping
-      const { toCenter, bestCellId, secondBestCellId, centerFactor } = getClumpInfo(worldXZ);
-      const blendFactor = mix(float(0.5), float(1.0), centerFactor);
-      const params1 = getClumpParams(bestCellId);
-      const params2 = getClumpParams(secondBestCellId);
-      const clumpParams = {
-        height: mix(params2.height, params1.height, blendFactor),
-        width: mix(params2.width, params1.width, blendFactor),
-        bend: mix(params2.bend, params1.bend, blendFactor),
-        type: params1.type
-      };
-      const bladeParams = getBladeParams(safeWorldXZ, clumpParams);
+      const bladesPerClump = float(uniforms.uClumpSize).div(BLADE_SPACING);
 
-      // Seeds
-      const perBladeHash01 = hash11(dot(safeWorldXZ, vec2(37.0, 17.0)));
-      const clumpSeed01 = hash11(dot(bestCellId, vec2(47.3, 61.7)));
+      const getClumpInfo = (gx: any, gz: any) => {
+        const cx = floor(float(gx).div(bladesPerClump));
+        const cz = floor(float(gz).div(bladesPerClump));
+        const minD2 = float(1e9).toVar();
+        const secondMinD2 = float(1e9).toVar();
+        const bestID = vec2(0.0).toVar();
+        const secondBestID = vec2(0.0).toVar();
+        const bestDiff = vec2(0.0).toVar();
+        const fx = fract(float(gx).div(bladesPerClump));
+        const fz = fract(float(gz).div(bladesPerClump));
+        const currentPos = vec2(fx, fz);
+        const offsets = [[-1, -1], [0, -1], [1, -1], [-1, 0], [0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+        offsets.forEach(([ox, oy]) => {
+          const neighborX = cx.add(float(ox));
+          const neighborZ = cz.add(float(oy));
+          const rand = hash2to2(int(neighborX), int(neighborZ));
+          const point = vec2(float(ox), float(oy)).add(rand);
+          const diff = point.sub(currentPos);
+          const d2 = dot(diff, diff);
+          If(d2.lessThan(minD2), () => {
+            secondMinD2.assign(minD2);
+            secondBestID.assign(bestID);
+            bestDiff.assign(diff);
+            minD2.assign(d2);
+            bestID.assign(vec2(neighborX, neighborZ));
+          }).ElseIf(d2.lessThan(secondMinD2), () => {
+            secondMinD2.assign(d2);
+            secondBestID.assign(vec2(neighborX, neighborZ));
+          });
+        });
+        const d1 = sqrt(minD2);
+        const d2 = sqrt(secondMinD2);
+        const smoothness = uniforms.uClumpBlendSmoothness ?? float(0.2);
+        const centerFactor = smoothstep(float(0.0), smoothness, d2.sub(d1));
+        const toCenter = bestDiff.mul(uniforms.uClumpSize);
+        return { bestID, secondBestID, centerFactor, toCenter };
+      };
+
+      const { bestID, secondBestID, centerFactor, toCenter } = getClumpInfo(globalGridX, globalGridZ);
+      const blendFactor = mix(float(0.5), float(1.0), centerFactor);
+
+      const getClumpParams = (idx: any, idy: any) => {
+        const h1 = hash2to1(int(idx), int(idy));
+        const h2 = hash2to1(int(idx).add(123), int(idy).add(456));
+        const h3 = hash2to1(int(idx).add(789), int(idy).add(101));
+        const h4 = hash2to1(int(idx).add(999), int(idy).add(999));
+        const h = mix(uniforms.uBladeHeightMin, uniforms.uBladeHeightMax, h1);
+        const w = mix(uniforms.uBladeWidthMin, uniforms.uBladeWidthMax, h2);
+        const b = mix(uniforms.uBendAmountMin, uniforms.uBendAmountMax, h3);
+        return { height: h, width: w, bend: b, type: h4 };
+      };
+
+      const p1 = getClumpParams(bestID.x, bestID.y);
+      const p2 = getClumpParams(secondBestID.x, secondBestID.y);
+      const height = mix(p2.height, p1.height, blendFactor);
+      const width = mix(p2.width, p1.width, blendFactor);
+      const bend = mix(p2.bend, p1.bend, blendFactor);
+      const type = p1.type;
+
+      const bladeRandSeed = hash2to1(globalGridX, globalGridZ);
+      const bladeRandSeed2 = hash2to1(globalGridX.add(1), globalGridZ);
+      const bladeRandSeed3 = hash2to1(globalGridX.add(2), globalGridZ);
+      const finalHeight = height.mul(mix(oneMinus(bladeRandX), float(1.0).add(bladeRandX), bladeRandSeed));
+      const finalWidth = width.mul(mix(oneMinus(bladeRandY), float(1.0).add(bladeRandY), bladeRandSeed2));
+      const finalBend = bend.mul(mix(oneMinus(bladeRandZ), float(1.0).add(bladeRandZ), bladeRandSeed3));
+
+      const perBladeHash01 = bladeRandSeed;
+      const clumpSeed01 = hash2to1(int(bestID.x).add(47), int(bestID.y).add(31));
+      const clumpHash = hash2to1(int(bestID.x), int(bestID.y));
+      const baseAngle = atan(toCenter.y, toCenter.x).mul(uniforms.uCenterYaw).mul(centerFactor)
+        .add(perBladeHash01.sub(0.5).mul(uniforms.uBladeYaw))
+        .add(clumpHash.sub(0.5).mul(uniforms.uClumpYaw).mul(centerFactor));
 
       // Wind
       const windStrength01 = calculateWindStrength(worldXZ, uWindDir, uWindScale, uTime, uWindSpeed, uWindStrength);
-      const baseAngle = calculateBaseAngle(toCenter, worldXZ, bestCellId, perBladeHash01, centerFactor);
       const facingAngle01 = applyWindFacingAndNormalize(baseAngle, windStrength01, uWindDir, uWindFacing);
       const angleRad = facingAngle01.mul(6.28318);
       const rotSin = sin(angleRad);
       const rotCos = cos(angleRad);
 
-      // Character interaction: compute push vector once per blade (saves length/div per vertex)
+      // Character interaction
       const charXZ = vec2(uniforms.uCharacterWorldPos.x, uniforms.uCharacterWorldPos.z);
       const charDiff = worldXZ.sub(charXZ);
       const charDist = length(charDiff);
@@ -332,8 +281,8 @@ export function createGrassCompute(
       const pushVector = safeCharDir.mul(finalPushStrength);
 
       const data = grassData.element(instanceIndex);
-      data.get("data0").assign(vec4(finalPos, bladeParams.type));
-      data.get("data1").assign(vec4(bladeParams.width, bladeParams.height, bladeParams.bend, windStrength01));
+      data.get("data0").assign(vec4(finalPos, type));
+      data.get("data1").assign(vec4(finalWidth, finalHeight, finalBend, windStrength01));
       data.get("data2").assign(vec4(rotSin, rotCos, clumpSeed01, perBladeHash01));
       data.get("data3").assign(vec4(tn.x, tn.z, pushVector.x, pushVector.y));
 

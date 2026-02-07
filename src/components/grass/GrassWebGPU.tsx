@@ -24,7 +24,7 @@ export default function GrassWebGPU({ cullCamera, visible = true }: GrassProps =
   // Use centralized grid snapping hook
   useGridSnapping({
     camera: cameraToUse,
-    onSnap: ({ snappedX, snappedZ }) => {
+    onSnap: ({ snappedX, snappedZ, currentCellX, currentCellZ }) => {
       if (!groupRef.current) return;
 
       groupRef.current.position.set(snappedX, 0, snappedZ)
@@ -33,6 +33,9 @@ export default function GrassWebGPU({ cullCamera, visible = true }: GrassProps =
       if (groupRef.current) {
         uniforms.compute.uGroupOffset.value.setFromMatrixPosition(groupRef.current.matrixWorld)
         uniforms.material.uGroupOffset.value.copy(uniforms.compute.uGroupOffset.value)
+        if (uniforms.compute.uGridIndex) {
+          uniforms.compute.uGridIndex.value.set(currentCellX, currentCellZ)
+        }
       }
     },
   })
