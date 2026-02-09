@@ -1,4 +1,6 @@
 # False Earth
+<img width="2559" height="1593" alt="螢幕擷取畫面 2026-02-09 173835" src="https://github.com/user-attachments/assets/85adc859-7ab1-44e1-91db-2a9f884c00f4" />
+
 
 **False Earth** is an interactive WebGPU experience that continues the journey of [Drift](https://github.com/momentchan/drift) - presenting a continuous landscape generated in real time through GPU-based simulations.
 
