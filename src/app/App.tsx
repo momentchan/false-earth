@@ -107,8 +107,9 @@ export default function App() {
                     bounds={() => [28, 32]}
                     onFallback={() => setDpr(1)}
                     onChange={({ factor }) => {
-                        setDpr(1 + 1 * factor);
-                        // console.log("factor", factor, "dpr", 1 + 1 * factor);
+                        const targetDpr = 1 + 1 * factor;
+                        setDpr(targetDpr);
+                        // console.log("factor", factor, "target DPR", targetDpr);
                     }}
                 />
 

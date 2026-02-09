@@ -3,7 +3,7 @@ import * as THREE from "three/webgpu";
 import { vatStructure } from "../core/config";
 import type { RoseLODBufferConfig } from "../core/config";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { createResetCompute, createSpawnCompute, createUpdateCompute } from "../core/vatCompute";
+import { createResetCountCompute, createResetInstanceCompute, createSpawnCompute, createUpdateCompute } from "../core/vatCompute";
 import { useFrame } from "@react-three/fiber";
 import { WebGPURenderer } from "three/webgpu";
 import { useThree } from "@react-three/fiber";
@@ -16,7 +16,7 @@ export function useRoseCompute(
     uniforms: Record<string, any>
 ) {
     const { gl, camera } = useThree()
-    const computeRefs = useRef<{ reset: THREE.ComputeNode[], spawn: THREE.ComputeNode, update: THREE.ComputeNode } | null>(null)
+    const computeRefs = useRef<{ resetCount: THREE.ComputeNode[], resetInstance: THREE.ComputeNode, spawn: THREE.ComputeNode, update: THREE.ComputeNode } | null>(null)
 
     const spawnUniforms = useMemo(() => ({
         uSpawnPos: uniform(vec3(0)),
@@ -43,19 +43,32 @@ export function useRoseCompute(
         if (!lodBuffers.length || !uniforms) return;
 
         // Compute Shaders - one reset per LOD, shared spawn/update
-        const resetComputes = lodBuffers.map((lodBuffer, index) => {
-            return createResetCompute(lodBuffer.drawStorage, lodBuffer.vertexCount).setName(`RoseReset_LOD${index}`)
+        const resetCountComputes = lodBuffers.map((lodBuffer, index) => {
+            return createResetCountCompute(lodBuffer.drawStorage, lodBuffer.vertexCount).setName(`RoseReset_LOD${index}`)
         })
 
         const spawnCompute = createSpawnCompute(vatData, spawnStorage, spawnUniforms, BATCH_SIZE, count).setName('RoseSpawn')
+        const resetInstanceCompute = createResetInstanceCompute(vatData, count).setName('RoseResetInstance')
         const updateCompute = createUpdateCompute(lodBuffers, vatData, count, uniforms).setName('RoseUpdate')
 
-        computeRefs.current = { reset: resetComputes, spawn: spawnCompute, update: updateCompute }
+        computeRefs.current = { resetCount: resetCountComputes, resetInstance: resetInstanceCompute, spawn: spawnCompute, update: updateCompute }
 
         return () => {
             computeRefs.current = null
         }
     }, [lodBuffers, uniforms, vatData, spawnStorage, spawnUniforms, count])
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key.toLowerCase() === 'x') {
+                const renderer = gl as unknown as WebGPURenderer
+                if (!computeRefs.current) return
+                renderer.compute(computeRefs.current.resetInstance)
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [computeRefs.current])
 
     const spawn = useCallback((pos: THREE.Vector3, amount: number = 1, radius: number = 0.5) => {
         spawnUniforms.uSpawnPos.value.copy(pos);
@@ -74,8 +87,8 @@ export function useRoseCompute(
         uniforms.uCameraPosition.value.copy(camera.position)
 
         // Reset all LOD buffers
-        computeRefs.current.reset.forEach(resetCompute => {
-            renderer.compute(resetCompute)
+        computeRefs.current.resetCount.forEach(resetCountCompute => {
+            renderer.compute(resetCountCompute)
         })
 
         renderer.compute(computeRefs.current.spawn)

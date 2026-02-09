@@ -154,11 +154,21 @@ export function createUpdateCompute(
     return updateFn().compute(count)
 }
 
-export function createResetCompute(drawStorage: ReturnType<typeof storage>, indexCount: number) {
+export function createResetCountCompute(drawStorage: ReturnType<typeof storage>, indexCount: number) {
     return Fn(() => {
         drawStorage.get("vertexCount").assign(uint(indexCount))
         atomicStore(drawStorage.get("instanceCount"), uint(0))
     })().compute(1)
+}
+
+export const createResetInstanceCompute = (vatData: ReturnType<typeof instancedArray>, count: number) => {
+    return Fn(() => {
+        const data = vatData.element(instanceIndex)
+        data.get("isActive").assign(0.0)
+        data.get("progress").assign(0.0)
+        data.get("frame").assign(0.0)
+        data.get("age").assign(0.0)
+    })().compute(count)
 }
 
 export function createSpawnCompute(
