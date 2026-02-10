@@ -20,7 +20,7 @@ import { CosmicSystem } from './cosmic/CosmicSystem';
 import { Terrain } from './Terrain';
 import { StarrySky } from './background/StarrySky';
 import { useGameStore } from '../core/store/gameStore';
-import { AsyncCompile } from '../core/utils/AsyncCompile';
+import { AsyncCompile } from '@core';
 import Rose from './Rose/Rose';
 import GrassWebGPU from './grass/GrassWebGPU';
 import { Character } from './character';

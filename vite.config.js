@@ -7,7 +7,7 @@ export default {
   base: "./",
   resolve: {
     alias: {
-      "@packages": resolve(__dirname, "packages"),
+      '@core': resolve(__dirname, 'packages/three-core/src')
     },
   },
   plugins: [react(), glsl(), basicSsl()],
