@@ -5,7 +5,7 @@ import * as THREE from 'three/webgpu';
 import { Fn, vec3, vec4, float, positionLocal, modelWorldMatrix, cameraViewMatrix, cameraProjectionMatrix, oneMinus, texture, uv } from 'three/tsl';
 import { getTerrainHeight } from '../../../core/shaders/terrainHelpers';
 import { uTerrainAmp, uTerrainFreq, uTerrainSeed } from '../../../core/shaders/uniforms';
-import { BODY_MESH_NAMES, BODY_TEXTURE_PATHS, DETAIL_TEXTURE_PATHS } from '../config';
+import { BODY_MESH_NAMES, BODY_TEXTURE_PATHS, DETAIL_TEXTURE_PATHS, MODEL_PATHS } from '../config';
 import { useKTX2Texture } from '@core';
 
 const configureTextures = (textures: any) => {
@@ -29,13 +29,8 @@ const extractClip = (gltf: any, name: string): THREE.AnimationClip | null => {
 };
 
 export function useCharacterAssets(uWorldPos?: any) {
-  const [meshData, idleAnim, walkAnim, runAnim, backAnim] = useGLTF([
-    '/models/Astronaut.glb',
-    '/models/Idle.glb',
-    '/models/Walking.glb',
-    '/models/Running.glb',
-    '/models/WalkingBack.glb',
-  ]);
+  const [meshData, idleAnim, walkAnim, runAnim, backAnim] = useGLTF(MODEL_PATHS);
+
   const mesh = meshData.scene;
 
   const bodyTex = configureTextures(useKTX2Texture(BODY_TEXTURE_PATHS))

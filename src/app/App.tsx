@@ -1,6 +1,6 @@
 import { Environment, PerformanceMonitor, useGLTF } from "@react-three/drei";
 import { LevaWrapper } from "@core";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useLoader } from "@react-three/fiber";
 import { useEffect, Suspense, useMemo, useState } from "react";
 import { DirectionalLight } from "../components/DirectionalLight";
 import { WebGPURenderer } from "three/webgpu";
@@ -17,12 +17,22 @@ import * as THREE from "three/webgpu";
 import { KeyboardMapper } from "@core";
 import { input, keyBindings } from "../core/input/controls";
 import { useShortcut } from "@core/hooks/useShortcut";
+import { AudioLoader } from 'three';
+import { KTX2Preloader } from "@core";
+import { ROSE_TEXTURES } from "../components/Rose/core/config";
+import { BODY_TEXTURE_PATHS, DETAIL_TEXTURE_PATHS, MODEL_PATHS } from '../components/character/config';
 
-useGLTF.preload('/models/Astronaut.glb');
-useGLTF.preload('/models/Idle.glb');
-useGLTF.preload('/models/Walking.glb');
-useGLTF.preload('/models/Running.glb');
-useGLTF.preload('/models/WalkingBack.glb');
+
+useLoader.preload(AudioLoader,
+    ['/audio/fs_grass1.mp3',
+        '/audio/fs_grass2.mp3',
+        '/audio/fs_grass3.mp3',
+        '/audio/fs_grass4.mp3',
+        '/audio/fs_grass5.mp3']);
+
+useLoader.preload(AudioLoader, ['/audio/wave01.mp3']);
+
+useGLTF.preload(MODEL_PATHS);
 
 preloadVATAssets('/vat/Rose_meta.json');
 preloadVATAssets('/vat/RoseLowPoly_meta.json');
@@ -73,6 +83,7 @@ export default function App() {
         <UI />
         <KeyboardMapper input={input} keyMap={keyBindings} />
 
+
         {!gpuError && (
             <Canvas
                 camera={{
@@ -97,6 +108,12 @@ export default function App() {
                 }}
                 dpr={dpr}
             >
+                <Suspense fallback={null}>
+                    <KTX2Preloader paths={ROSE_TEXTURES} />
+                    <KTX2Preloader paths={BODY_TEXTURE_PATHS} />
+                    <KTX2Preloader paths={DETAIL_TEXTURE_PATHS} />
+                </Suspense>
+
                 <AudioManager onListenerCreated={setAudioListener} />
 
                 <PerformanceMonitor

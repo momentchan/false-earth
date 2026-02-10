@@ -34,6 +34,14 @@ export const DETAIL_TEXTURE_PATHS = {
   normalMap: 'textures/Details/Astronaut_Suit_Details_Normals.ktx2',
 };
 
+export const MODEL_PATHS = [
+  '/models/Astronaut.glb',
+  '/models/Idle.glb',
+  '/models/Walking.glb',
+  '/models/Running.glb',
+  '/models/WalkingBack.glb',
+];
+
 // ============================================================================
 // Types
 // ============================================================================
