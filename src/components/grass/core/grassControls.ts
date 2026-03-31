@@ -64,7 +64,7 @@ export function createGrassControls() {
     }, { collapsed: true }),
 
     Performance: folder({
-        lodNoiseScale: { value: 0.1, min: 0.0, max: 0.5, step: 0.01 },
+        lodNoiseScale: { value: 0.1, min: 0.0, max: 0.1, step: 0.001 },
         cullOffset: { value: 2, min: 0.1, max: 5.0, step: 0.01 },
     }, { collapsed: true }),
 
