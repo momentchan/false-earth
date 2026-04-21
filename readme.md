@@ -1,10 +1,22 @@
 # False Earth
+
+
 <img width="2559" height="1593" alt="螢幕擷取畫面 2026-02-09 173835" src="https://github.com/user-attachments/assets/85adc859-7ab1-44e1-91db-2a9f884c00f4" />
+
+</br>
+
+🔗 **[Live Demo](https://false-earth.mingjyunhung.com/)**
 
 
 **False Earth** is an interactive WebGPU experience that continues the journey of [Drift](https://github.com/momentchan/drift) - presenting a continuous landscape generated in real time through GPU-based simulations.
 
+
+
 Set after the long drift through space, the project follows an astronaut who arrives on a surface that resembles Earth, yet does not behave like one. As the astronaut moves forward, the ground responds and transforms, leaving visible traces across an endless field. Rather than telling a story through words, the experience unfolds through motion and change—where distance never closes and the environment reveals its nature only through interaction. By navigating this unfamiliar terrain, visitors encounter a world that appears stable at first glance, but gradually exposes uncertain form.
+
+
+
+
 
 ---
 
