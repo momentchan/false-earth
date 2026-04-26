@@ -16,10 +16,12 @@
 Set after the long drift through space, the project follows an astronaut who arrives on a surface that resembles Earth, yet does not behave like one. As the astronaut moves forward, the ground responds and transforms, leaving visible traces across an endless field. Rather than telling a story through words, the experience unfolds through motion and change—where distance never closes and the environment reveals its nature only through interaction. By navigating this unfamiliar terrain, visitors encounter a world that appears stable at first glance, but gradually exposes uncertain form.
 
 
-## 💡 Credits
-If you use or build upon **False Earth** in your own projects, please kindly credit the project and the author: 
+## 💡 Attribution
+If you use this project in your own work, please provide credit to the author. 
 
-**False Earth** by Ming-Jyun Hung (https://false-earth.mingjyunhung.com/)
+**Author:** Ming-Jyun Hung  
+**Source:** [https://mingjyunhung.com/](https://mingjyunhung.com/)
+
 
 ---
 
